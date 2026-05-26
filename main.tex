@@ -80,11 +80,11 @@ In the next section, we introduce the finite exponential mixture and our paramet
 \section{Exponential Mixtures}
 \label{sec:emm}
 
-A foundational result in EVT, the Pickands--Balkema--de Haan theorem, states that for a broad class of underlying probability distributions, the distribution of these threshold excesses asymptotically converges to the Generalized Pareto Distribution (GPD) as the threshold $u$ becomes large. The GPD density is given by:
+In high energy searches for new physics, analysts are interested in modeling the tails of falling distributions which are generally well above Standard Model resonances. A foundational result in EVT, the Pickands--Balkema--de Haan theorem \cite{Picklands_1975, Balkema_Haan_1974}, states that for a broad class of underlying probability distributions, the tail beyond a suitably high threshold converges to the Generalized Pareto Distribution (GPD). The GPD density is given by:
 \begin{equation}
     f(x | u, \sigma, \xi) = \frac{1}{\sigma} \left( 1 + \xi \frac{x - u}{\sigma} \right)^{-\left( \frac{1}{\xi} + 1 \right)}
 \end{equation}
-where $u$
+where $u$ is the threshold, $\sigma$ is the scale parameter, and $\xi$ is the shape parameter. The GPD domains are specified by the value of $\xi$: for $\xi > 0$, the distribution is heavy-tailed (Fréchet domain); for $\xi = 0$, it reduces to the exponential distribution (Gumbel domain); and for $\xi < 0$, it has a finite upper bound $x < u - \sigma/\xi$ (Weibull domain). Here we focus on the unbounded cases ($\xi \geq 0$), however in principle there exists upper bounds on the energy spectra due to the finite beam energy. In practice, however, these upper bounds are often far from the observed data and the spectra are well approximated by the unbounded case.
 
 
 % Introduce Extreme Value Theory
