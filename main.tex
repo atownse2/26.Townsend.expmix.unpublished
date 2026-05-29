@@ -49,7 +49,7 @@ USA}
 \emailAdd{atownse2@nd.edu}
 
 \abstract{
-Searches for new physics at the LHC often look for a localized excess on a falling background distribution. Several classes of background models have been considered, including polynomials and other parametric families. In this work, we motivate the finite exponential mixture as a flexible class of functions for approximating falling distributions using results from extreme value theory. Using several published results we show that the exponential mixture performance is competitive for both small ($n=5,036$) and large ($n=28,619,185$) datasets. Finally in simulation studies we demonstrate the exponential mixture's ability to approximate other commonly used functions with small bias and good coverage.
+Searches for new physics at the LHC often look for localized excesses on falling background distributions. Several classes of background models have been considered, including polynomials and other parametric families. In this work, we motivate the finite exponential mixture as a flexible semi-parametric class of functions for approximating falling distributions, drawing on results from extreme value theory. Using several published results, we show that the exponential mixture performance is similar to existing methods for both small ($n=5,036$) and large ($n=28,619,185$) datasets. Finally, in simulation studies, we measure the bias and coverage of the exponential mixture and find it to have small bias and best in class coverage.
 }
 
 \DeclareUnicodeCharacter{2009}{\,}
@@ -62,38 +62,37 @@ Searches for new physics at the LHC often look for a localized excess on a falli
 \label{sec:intro}
 
 % Motivation
-Searches for new particles are standard in high energy physics. The Large Hadron Collider (LHC) produces environments where new particles may be created by colliding beams of protons that are accelerated to 99.9999991\% the speed of light \cite{LHC_speed}. During a collision, the proton constituents sometimes interact and produce new particles. If a particle is produced and decays within the detector, with visible decay products, one can reconstruct the mass of the parent particle. With enough of these events recorded, we can claim a discovery.
+Searches for new particles are standard in high-energy physics. The Large Hadron Collider (LHC) produces environments where new particles may be created by colliding beams of protons that are accelerated to 99.9999991\% the speed of light \cite{LHC_speed}. If a new particle is produced and decays within the detector, with visible decay products, one can reconstruct the mass of the parent particle. With enough of these events recorded, we can claim a discovery. The primary challenge in these searches is posed by Standard Model (SM) processes that mimic the signal. These processes are collectively referred to as backgrounds. Because new physics signals are typically rare, they are often obscured by these much more frequent background events. With this setup, searches for new physics employ statistical models containing signal and background components. In the absence of an obvious signal the challenge is to distinguish any possible signal from statistical fluctuations in the background; in this case a proper description of the background model is essential.
 
-% Backgrounds
-The primary challenge in these searches is posed by Standard Model (SM) processes that mimic the signal. These processes are collectively referred to as backgrounds. Because new physics signals are typically rare, they are often obscured by these much more frequent background events. With this setup, searches for new physics employ statistical models containing signal and background components. In the absence of an obvious signal the challenge is to distinguish any possible signal from statistical fluctuations in the background; in this case a proper description of the background model is essential. In this paper, we focus on background models for resonant searches, where signals are represented by local (resonant) deviations on top of a smooth falling background. The signal shapes in non-local (non-resonant) searches vary and require background estimation methods which are out of the scope of this paper.
+In this paper, we focus on background models for resonant searches, where signals are represented by local (resonant) deviations on top of a smooth falling background. The signal shapes in non-local (non-resonant) searches vary and require background estimation methods which are out of the scope of this paper.
 
-Background models in resonant searches often rely on data sidebands for identification and range from very flexible to rigid analysis specific background models. Flexible models like polynomials theoretically have low bias, but may need a large number of parameters to achieve this and can be hard to optimize. These models can also be too flexible, fitting the signal if not careful and/or generating nonphysical behaviors in the tails. Previous searches considering polynomials, such as those used to discover the Higgs boson \cite{CMS_Higgs_Discovery, ATLAS_Higgs_Discovery}, avoid these issues by only fitting a portion of the observed mass spectra near the Higgs mass, and masking the signal region when initializing the background parameters. Since the Higgs mass occurs within the bulk of the background, this ensures that the background model is well constrained by the data sidebands. However, other analyses extend their search space to the tails, looking for signals at the far ends of distributions where no sidebands are available. These analyses require better extrapolation techniques.
+Background models in resonant searches often rely on data sidebands for identification and range from very flexible to rigid analysis-specific background models. Flexible models like polynomials theoretically have low bias, but may need a large number of parameters to achieve this, and can be hard to optimize. These models can also be too flexible, fitting the signal if not careful, and/or generating nonphysical behaviors in the tails. Previous searches considering polynomials, such as those used to discover the Higgs boson \cite{CMS_Higgs_Discovery, ATLAS_Higgs_Discovery}, avoid these issues by only fitting a portion of the observed mass spectra near the Higgs mass, and masking the signal region when initializing the background parameters. Since the Higgs mass occurs within the bulk of the background, this ensures that the background model is well constrained by the data sidebands. However, other analyses extend their search space to the tails, looking for signals at the far ends of distributions where no sidebands are available. These analyses require better extrapolation techniques.
 
-Analysis specific background models are often more rigid, avoiding some of the drawbacks that come with very flexible models like polynomials. The underlying theory describing the particle interactions is complicated enough that there are generally no closed form expressions for describing these backgrounds, but still there are some good approximations. The most famous example is the dijet function. It has been used since the 1990's by the CDF and D\O\ collaborations and more recently by CMS and ATLAS \cite{Harris:2011bh} to describe the invariant mass distribution of particle jets in hadron colliders. This function is motivated by leading order quantum chromodynamics (QCD) and the mass dependence of parton distribution functions \cite{Harris:2011bh} but also includes ad-hoc terms which are used to improve the fit to the data. This function works on existing datasets, but since it relies on a number of approximations, it is likely to need updating as datasets grow in size.
+Analysis-specific background models are often more rigid, avoiding some of the drawbacks that come with very flexible models like polynomials. The underlying theory describing the particle interactions is complicated enough that there are generally no closed-form expressions for describing these backgrounds, but still, there are some good approximations. The most famous example is the dijet function. It has been used since the 1990's by the CDF and D\O\ collaborations and more recently by CMS and ATLAS \cite{Harris:2011bh} to describe the invariant mass distribution of particle jets in hadron colliders. This function is motivated by leading order quantum chromodynamics (QCD) and the mass dependence of parton distribution functions \cite{Harris:2011bh} but also includes ad-hoc terms which are used to improve the fit to the data. This function works on existing datasets, but since it relies on a number of approximations, it is likely to need updating as datasets grow in size.
 
 Other searches will use objects such as photons or electrons. Backgrounds in these kinds of searches tend to be more complicated, as the objects can be real SM photons/electrons or they can be signatures faked by other objects like hadronic jets. Despite this, the dijet function (or a version with a smaller number of parameters) is often considered. To combat the bias associated with the assumption of a particular functional form, more recent analyses \cite{CMS_high_mass_diphoton} will often consider a number of background functions simultaneously using the discrete profiling method \cite{discrete-profiling}. These functions are typically chosen from a larger set of function classes, which can be extended with more parameters. In these cases, researchers are typically interested in finding function classes that approximate the spectra with the smallest number of parameters, using test-based model selection methods.
 
-In this paper, we consider the finite exponential mixture as an alternative approach to modeling smoothly falling backgrounds which is motivated as a generalization of the asymptotic distribution of threshold excesses. Extreme Value Theory (EVT) provides a rigorous statistical framework for describing the behavior of the tails of distributions. Rather than attempting to model the full, complicated mass spectrum from the underlying physics or relying on ad-hoc functional forms, EVT allows us to justify our approach mathematically. In addition to the mathematical motivations we show that the finite exponential mixture can match the performance of previous methods in datasets that vary widely in size (from $n=5,036$ to $n=28,619,185$). Finally in pseudo-datasets we show that, with an appropriate model selection metric, the finite exponential mixture has small bias and exceptional coverage in the bulk. The exponential mixture is flexible enough to generalize to different datasets, while rigid enough to avoid most overfitting.
+In this paper, we consider the finite exponential mixture as an alternative approach to modeling smoothly falling backgrounds, which is motivated as a generalization of the unbounded asymptotic distribution of threshold excesses. Extreme Value Theory (EVT) provides a rigorous statistical framework for describing the behavior of the tails of distributions. Rather than attempting to model the full, complicated mass spectrum from the underlying physics or relying on ad-hoc functional forms, EVT allows us to justify our approach mathematically. In addition to the mathematical motivations, we show that the finite exponential mixture can match the performance of previous methods in datasets that vary widely in size (from $n=5,036$ to $n=28,619,185$). Finally, in pseudo-datasets, we show that, with an appropriate model selection metric, the finite exponential mixture has small bias and exceptional coverage in the bulk. The exponential mixture is flexible enough to generalize to different datasets, while rigid enough to avoid most overfitting.
 
 In the next section, we introduce the finite exponential mixture and our parameterization with the model selection procedure and its justification. We also discuss some issues related to implementation and global optimization. In sections \ref{sec:example1} and \ref{sec:example2} we fit the exponential mixture to two published datasets, comparing with the original methods. In section \ref{sec:toys} we generate pseudo-datasets using the set of functions considered in \ref{sec:example2} and compare the bias, coverage, and spurious signal of those models with the exponential mixture. Finally in section \ref{sec:discussion} we summarize the results and discuss several considerations, extensions, and areas for future research.
 
 \section{Exponential Mixtures}
 \label{sec:emm}
 
-In high-energy searches for physics beyond the Standard Model, analysts often model smoothly falling spectra above some threshold $u$ that is typically well above known resonances. This regime is well suited to Extreme Value Theory (EVT), which provides a rigorous description of tail behavior for large $u$. A central EVT result, the Pickands--Balkema--de Haan theorem \cite{Picklands_1975, Balkema_Haan_1974}, states that for a broad class of underlying distributions, exceedances above a sufficiently high threshold converge to a Generalized Pareto Distribution (GPD). The GPD density is given by:
+A foundational result in extreme value theory, the Pickands--Balkema--de Haan theorem \cite{Picklands_1975, Balkema_Haan_1974} states that, in some regime, the tails of a broad class of parent distributions converge to a Generalized Pareto Distribution (GPD).  is In high-energy searches for physics beyond the Standard Model, analysts often model smoothly falling spectra above some sufficiently high threshold $u$. The GPD density is given by:
 \begin{equation}
     f(x | u, \sigma, \xi) = \frac{1}{\sigma} \left( 1 + \xi \frac{x - u}{\sigma} \right)^{-\left( \frac{1}{\xi} + 1 \right)}
 \end{equation}
 where $u$ is the lower threshold, $\sigma$ is the scale parameter, and $\xi$ is the shape parameter. The GPD domains are specified by the value of $\xi$: for $\xi > 0$, the distribution is heavy-tailed; for $\xi = 0$, it reduces to the exponential distribution; and for $\xi < 0$, it has a finite upper bound $x < u - \sigma/\xi$. The GPD will model the density arbitrarily close to the upper bound of the parent distribution, but it may not be a good approximation overall.
 
-Relevant to HEP analyses is the case of a heavy tailed distribution with a finite upper bound. Close enough to this upper bound, the GPD with $\xi < 0$ will be a good approximation, but as the lower threshold decreases, the GPD will fail to capture the heavy tail behavior of the distribution. Alternatively if there are no data near the upper bound, the GPD with $\xi>0$ may be a good approximation for the bulk of the data. In the case where both the upper bound and the heavy tail are relevant, the GPD will fail to capture both behaviors and a more flexible model is needed. If $\xi>0$, the GPD can be represented as a mixture of exponentials with a gamma mixing density. This motivates the use of more general mixtures of exponentials to capture a wider variety of tail behaviors.
+Relevant to HEP analyses is the case of a heavy-tailed distribution with a finite upper bound. Close enough to this upper bound, the GPD with $\xi < 0$ will be a good approximation, but as the lower threshold decreases, the GPD will fail to capture the heavy tail behavior of the distribution. Alternatively, if there are no data near the upper bound, the GPD with $\xi>0$ may be a good approximation for the bulk of the data. In the case where both the upper bound and the heavy tail are relevant, the GPD will fail to capture both behaviors, and a more flexible model is needed. If $\xi>0$, the GPD can be represented as an exponential-gamma mixture. This motivates the use of more general exponential mixtures to capture a wider variety of tail behaviors.
 
-Mixture models are a flexible class of models that can be used to approximate a wide variety of distributions. The density of a general single parameter mixture ($\theta$) can be written as:
+Mixture models are a flexible class of models that can be used to approximate a wide variety of distributions. The density of a general single-parameter mixture ($\theta$) can be written as:
 \begin{equation}
 \label{general_mixture}
 f(x) = \int p(\theta) p(x | \theta) d\theta \, ,
 \end{equation}
-where $p(x|\theta)$ is the base density and $p(\theta)$ is the mixing density. In general $p(\theta)$ can be any density function defined in the domain of $\theta$, although it is commonly estimated non-parametrically as a discrete distribution with $k$ supports. This discrete estimate of $p(\theta)$ can be written as:
+where $p(x|\theta)$ is the base density and $p(\theta)$ is the mixing density. In general, $p(\theta)$ can be any density function defined in the domain of $\theta$, although it is commonly estimated non-parametrically as a discrete distribution with $k$ supports. This discrete estimate of $p(\theta)$ can be written as:
 \begin{equation}
 \label{sum_approx}
 p_k(\vec\theta)=\sum_{i=1}^k w_i \delta(\theta-\theta_i),
@@ -114,7 +113,7 @@ Using eq. \ref{finite_mixture} we can write the finite exponential mixture densi
 \begin{equation}
 f_k(x) = \sum_{i=1}^k w_i e^{-\beta_i x} \, ,
 \end{equation}
-where $\beta_i$ is identified as the rate parameter of the exponential distribution which is now restricted to $[0,\infty)$. To enforce the condition that the weights $\vec{w}$ sum to 1, the parameters are constructed from a set of free parameters $\vec{v}$ with $k-1$ degrees of freedom using the softmax function:
+where $\beta_i$ is identified as the rate parameter of the exponential distribution, which is now restricted to $[0,\infty)$. To enforce the condition that the weights $\vec{w}$ sum to 1, the parameters are constructed from a set of free parameters $\vec{v}$ with $k-1$ degrees of freedom using the softmax function:
 \begin{equation}
 \label{softmax}
 w_i = \frac{e^{v_i}}{\sum_{j=1}^{k}e^{v_j}} \, ,
@@ -125,15 +124,15 @@ where $v_1=0$ and $v_{i\neq 1} \in (-\infty,\infty)$.
 The model parameters are estimated from data distributions using maximum likelihood estimation (MLE) using Python distributions of the \texttt{RooFit}~\cite{RooFit} library within the \texttt{ROOT} framework \cite{ROOT}. The use of the \texttt{ROOT} framework is motivated by its widespread use in particle physics research. The optimization uses the \texttt{MINUIT} package \cite{Minuit2} with the \texttt{MIGRAD} optimization algorithm. \texttt{MIGRAD} is a variable-metric method with inexact line search, a stable metric updating scheme, and checks for positive-definiteness.
 
 % RooFit range dependence
-\texttt{RooFit} will calculate a normalization for the density which depends on the range $(X_{\min},X_{\max})$ of the observable $X$ which makes sense for observables that have physical constraints. We found that the model selection answer depends on $X_{\max}$ even in the case where $X_{\max}>\max(X)$. In particular, we found that $X_{\max}$ near, but greater than $\max(X)$ prefer more complex models with densities that fall off very slowly. We set the \texttt{RooFit} range based on the range of possible observations that we would like to use to constrain our model which includes regions ($X>\max(X)$) of zero events up to a threshold determined by the beam energy, the physics of the underlying interactions, and the model used. Generally this decision will require some consideration if the data are near the physical threshold; however, for simplicity we choose an upper threshold of 10 TeV below the beam's 13 TeV center of mass energy.
+\texttt{RooFit} will calculate a normalization for the density which depends on the range $(X_{\min},X_{\max})$ of the observable $X$, which makes sense for observables that have physical constraints. We found that the model selection answer depends on $X_{\max}$ even in the case where $X_{\max}>\max(X)$. In particular, we found that $X_{\max}$ near, but greater than $\max(X)$ prefer more complex models with densities that fall off very slowly. We set the \texttt{RooFit} range based on the range of possible observations that we would like to use to constrain our model, which includes regions ($X>\max(X)$) of zero events up to a threshold determined by the beam energy, the physics of the underlying interactions, and the model used. Generally this decision will require some consideration if the data are near the physical threshold; however, for simplicity we choose an upper threshold of 10 TeV below the beam's 13 TeV center of mass energy.
 
 % Convexity and Identifiability
-Mixture models are notoriously non-convex. One trivial source of non-convexity comes from the fact that each exponential term is equivalent. This is known as label switching and means that every minimum [In the MLE?] is replicated $k!$ times. In addition, false minima can be found when one part of the rate space has too many supports while other parts of the space have too few. This can be seen in the case of the 2 component mixture; if the supports are initialized close together they will become trapped in a false minimum, effectively producing the $k=1$ model. This problem becomes more of an issue as the number of components increases. Given the low dimensionality required for the datasets considered in this paper ($k<6$) we use random restarts to approximate the global minimum, using more restarts for larger $k$. For more advanced methods, see \cite{split-and-merge}.
+Mixture models are notoriously non-convex. One trivial source of non-convexity comes from the fact that each exponential term is equivalent. This is known as label switching and means that every minimum [In the MLE?] is replicated $k!$ times. In addition, false minima can be found when one part of the rate space has too many supports while other parts of the space have too few. This can be seen in the case of the 2-component mixture; if the supports are initialized close together, they will become trapped in a false minimum, effectively producing the $k=1$ model. This problem becomes more of an issue as the number of components increases. Given the low dimensionality required for the datasets considered in this paper ($k<6$) we use random restarts to approximate the global minimum, using more restarts for larger $k$. For more advanced methods, see \cite{split-and-merge}.
 
 % Model Selection
-The number of components needed to fit a dataset is determined from that dataset. In contrast to Gaussian mixtures or polynomials, exponentials are rigid, minimizing the risk of overfitting statistical fluctuations in the background or localized signals. An exception is that this model [Describe why this is.  It's obviously not part of the exponential mixture but something introduced to describe physics and thresholds.] is free to add a component near the lower threshold which falls off very fast. To fix this, we impose an upper threshold on the rate parameters which is set to be 50 times the rate of a single exponential estimated by $1/(\mathbb{E}(X)-X_{\min})$. We use this reference rate to define a normalized set of rate parameters for the exponential rates so that the initialization can be robust to different datasets. With this transformation, the rate parameters tend to be between 0.5 and 2.5.
+The number of components needed to fit a dataset is determined from that dataset. In contrast to Gaussian mixtures or polynomials, exponentials are rigid, minimizing the risk of overfitting statistical fluctuations in the background or localized signals. An exception is that this model [Describe why this is. It's obviously not part of the exponential mixture but something introduced to describe physics and thresholds.] is free to add a component near the lower threshold which falls off very fast. To fix this, we impose an upper threshold on the rate parameters which is set to be 50 times the rate of a single exponential estimated by $1/(\mathbb{E}(X)-X_{\min})$. We use this reference rate to define a normalized set of rate parameters for the exponential rates so that the initialization can be robust to different datasets. With this transformation, the rate parameters tend to be between 0.5 and 2.5.
 
-Model selection methods vary depending on the goal of the analysis. If the components of the model have physical significance it may be more useful to use conservative test based methods like the likelihood ratio test (LRT). In our case, we are not interpreting the parameters of the exponential mixture. Instead, we are using this model only as a means of flexibly approximating some unknown density. Following the discussion of McLachlan and Peel (chapter 6.1.1) \cite{finite-mixture-models}, we restrict our set of model selection metrics to the penalized likelihood measures AIC [Define] and BIC [Define]. In Section \ref{sec:toys} we compare the bias and coverage using these metrics and find AIC to be the least biased with the best coverage. Therefore, we will use AIC to determine the number of exponential components.
+Model selection methods vary depending on the goal of the analysis. If the components of the model have physical significance, it may be more useful to use conservative test-based methods like the likelihood ratio test (LRT). In our case, we are not interpreting the parameters of the exponential mixture. Instead, we are using this model only as a means of flexibly approximating some unknown density. Following the discussion of McLachlan and Peel (chapter 6.1.1) \cite{finite-mixture-models}, we restrict our set of model selection metrics to the penalized likelihood measures AIC [Define] and BIC [Define]. In Section \ref{sec:toys}, we compare the bias and coverage using these metrics and find AIC to be the least biased with the best coverage. Therefore, we will use AIC to determine the number of exponential components.
 
 As we approach or surpass the number of components needed to model a dataset, we find that the likelihood becomes very flat as a result of the optimization of exponential components with very small weights. In some cases the minimizer will stop and report $\text{status}=3$, which means that the estimated distance to the minimum is above the pre-defined threshold. In these cases, it can be useful to simply run the optimization again with the parameters starting at the values returned by the last optimization attempt. Depending on the dataset and initialization, this may take 50 to 100 attempts until the minimizer converges to an acceptable minimum. It is possible that this is a sign that we have added too many components or that some of the other components are too close together (from bad initialization). Regardless, we allow for a number of retries for every random restart to improve the rate of fits that find an acceptable minimum.
 
@@ -147,10 +146,10 @@ This analysis used a sliding window fit with the dijet function. The dijet funct
 \begin{equation}
 f_D(x) = p_0(1-x)^{p_1}/x^{p_2+p_3\log x},
 \end{equation}
-where $x=m_{jj}/\sqrt{s}$ for the two jet invariant mass $m_{jj}$ and the center-of-mass energy $\sqrt{s}=13$ TeV. We do not replicate the sliding window fit method here, instead fitting the entire spectrum at once for our comparisons.
+where $x=m_{jj}/\sqrt{s}$ for the two jet invariant mass $m_{jj}$ and the center-of-mass energy $\sqrt{s}=13$ TeV. We do not replicate the sliding window fit method here; instead, we fit the entire spectrum at once for our comparisons.
 
 % Binning explanation
-The dataset available on \texttt{HEPData} \cite{Maguire_2017} is binned. Datasets in high energy physics can be very large, causing fits to the original (unbinned) dataset to be time consuming. In these cases, it is common to bin the data fine enough to not lose information, but wide enough that fits converge in reasonable times. The bin widths in this case are determined by the dijet invariant mass resolution, which broadens at higher values. The binned likelihood is then given by the product of Poisson probabilities:
+The dataset available on \texttt{HEPData} \cite{Maguire_2017} is binned. Datasets in high-energy physics can be very large, causing fits to the original (unbinned) dataset to be time-consuming. In these cases, it is common to bin the data fine enough not to lose information, but wide enough that the fits converge in reasonable times. The bin widths in this case are determined by the dijet invariant mass resolution, which broadens at higher values. The binned likelihood is then given by the product of Poisson probabilities:
 \begin{equation}
     L(\beta) = \prod_b \text{Pois}(n_b|n_{f,b}),
 \end{equation}
@@ -165,7 +164,7 @@ where $b_-$ and $b_+$ are the lower and upper edges of bin $b$.
     % Number of random restarts.
     % Model selection
 
-The binning provided on $\texttt{HEPData}$ only includes a single, small width bin following the last bin with non-zero entries. Because of the model selection's dependence on the upper threshold of the fit, we add an additional bin with zero entries that extends to 10 TeV as discussed in the previous section. Since this dataset is large, we will likely need higher $k$ to adequately model it. Higher $k$ implies more false minima, so we use 80 random restarts per model with 100 retries each fit. This is a conservative choice; it is possible that fewer restarts will result in the same solution. In Figure \ref{fig:dijet_AIC_BIC} we show the AIC (and BIC) scores for various $k$. The model with the best AIC has four components.
+The binning provided on $\texttt{HEPData}$ only includes a single, small-width bin following the last bin with non-zero entries. Because of the model selection's dependence on the upper threshold of the fit, we add an additional bin with zero entries that extends to 10 TeV, as discussed in the previous section. Since this dataset is large, we will likely need a higher $k$ to adequately model it. Higher $k$ implies more false minima, so we use 80 random restarts per model with 100 retries each fit. This is a conservative choice; it is possible that fewer restarts will result in the same solution. In Figure \ref{fig:dijet_AIC_BIC} we show the AIC (and BIC) scores for various $k$. The model with the best AIC has four components.
 
 \begin{figure}
     \centering
@@ -181,28 +180,30 @@ The binning provided on $\texttt{HEPData}$ only includes a single, small width b
     \label{fig:dijet_fit}
 \end{figure}
 
-\begin{table}[h]
-\centering
-\begin{tabular}{lcc}
-\hline
-Model & AIC & BIC \\
-\hline
-Dijet Function & 372168582.25 & 372168627.76 \\
-Exponential Mixture (AIC) & 372168581.97 & 372168688.16 \\
-\hline
-\end{tabular}
-\label{tab:dijet_AIC_BIC}
-\caption{[This table has no caption. Also, the numerical values are less than elucidating.]} 
-\end{table}
+% \begin{table}[h]
+% \centering
+% \begin{tabular}{lcc}
+% \hline
+% Model & AIC & BIC \\
+% \hline
+% Dijet Function & 372168582.25 & 372168627.76 \\
+% Exponential Mixture (AIC) & 372168581.97 & 372168688.16 \\
+% \hline
+% \end{tabular}
+% \label{tab:dijet_AIC_BIC}
+% \caption{[This table has no caption. Also, the numerical values are less than elucidating.]} 
+% \end{table}
 
-The fit of the dijet function and the 4 component exponential mixture to the Dijet dataset is shown in figure \ref{fig:dijet_fit}. Looking at the pull plot we see that the two functions provide similar estimates throughout the mass range. The AIC and BIC scores are shown in Table \ref{tab:dijet_AIC_BIC}. [Weird numbering - why isn't this Table 1?] The exponential mixture provides a better fit in terms of AIC and the dijet function provides a better fit in terms of BIC. 
+The fit of the dijet function and the 4-component exponential mixture to the Dijet dataset is shown in figure \ref{fig:dijet_fit}. Looking at the normalized residuals (Pull), we see that the two functions provide similar estimates throughout the mass range.
+
+% The AIC and BIC scores are shown in Table \ref{tab:dijet_AIC_BIC}. [Weird numbering - why isn't this Table 1?] The exponential mixture provides a better fit in terms of AIC and the dijet function provides a better fit in terms of BIC. 
 
 % The tradeoff is then between a small parameter model which is theoretically motivated and a large parameter flexible model which may have reduced sensitivity if the Dijet function provides a better description. However, we show later in Figure \ref{fig:spurious} that the variance in the exponential mixture's predictions are not much larger than that of the true data generating model.
 
 \section{CMS High Mass Diphoton Spectrum} \label{sec:example2}
 
 % Indroduce dataset
-In this section, we consider the run 2 dataset published by CMS in the high mass diphoton final state \cite{CMS_high_mass_diphoton}. The CMS detector is a general-purpose apparatus built in and around a large-bore superconducting solenoid, which generates a 3.8 T magnetic field containing the inner tracking system and the calorimeters. For diphoton resonance searches, the most critical subsystem is the electromagnetic calorimeter (ECAL), composed of more than 75,000 lead tungstate (PbWO$_4$) crystals. This homogeneous calorimeter provides coverage in the barrel ($|\eta|<1.479$) and endcap ($1.479<|\eta|<3.0$) regions, delivering the exceptional energy resolution and fine granularity necessary to give precise estimates of the invariant mass. For simplicity we will only use the sample ($n=5,036$) where both photons are in the ECAL barrel region.
+In this section, we consider the run 2 dataset published by CMS in the high mass diphoton final state \cite{CMS_high_mass_diphoton}. The CMS detector is a general-purpose apparatus built in and around a large-bore superconducting solenoid, which generates a 3.8 T magnetic field containing the inner tracking system and the calorimeters. For diphoton resonance searches, the most critical subsystem is the electromagnetic calorimeter (ECAL), composed of more than 75,000 lead tungstate (PbWO$_4$) crystals. This homogeneous calorimeter provides coverage in the barrel ($|\eta|<1.479$) and endcap ($1.479<|\eta|<3.0$) regions, delivering the exceptional energy resolution and fine granularity necessary to give precise estimates of the invariant mass. For simplicity, we will only use the sample ($n=5,036$) where both photons are in the ECAL barrel region.
 
 The background estimate for this analysis uses the discrete profiling method with the following functions:
 \begin{align} \label{eq:dipoton_fns}
@@ -211,9 +212,9 @@ The background estimate for this analysis uses the discrete profiling method wit
     f_3(x)&=p_0(1+xp_1)^{p_2}, \\
     f_4(x)&=p_0(1+xp_1)^{p_2+p_3x},
 \end{align}
-where $x=m_{\gamma\gamma}/\sqrt{s}$, $m_{\gamma\gamma}$ is the invariant mass of two photon system and $\sqrt{s}$ is the center-of-mass energy. 
+where $x\equiv m_{\gamma\gamma}/\sqrt{s}$, $m_{\gamma\gamma}$ is the invariant mass of two photon system and $\sqrt{s}$ is the center-of-mass energy. 
 
-With the published parameter estimates on \texttt{HEPData} we can see that $f_2$ and $f_3$ are completely monotone functions. The first function $f_1$ has completely monotone components but the term $x^{p_2 \log(x)}$ is not; most departures from complete monotonicity are found at low $x$. The derivatives of function four $f_4$ are more complicated than the other functions but a visual inspection of the derivatives shows no departure from complete monotonicity up to the fourth derivative.
+With the published parameter estimates on \texttt{HEPData} we can see that $f_2$ and $f_3$ are completely monotone functions. The first function $f_1$ has completely monotone components but the term $x^{p_2 \log(x)}$ is not; most departures from complete monotonicity are found at low $x$. The derivatives of function four $f_4$ are more complicated than the other functions, with no guarantee of complete monotonicity, though it is possible for the given published parameter estimates.
 
 % Implementation
     % Upper threshold
@@ -223,35 +224,43 @@ While the official HEPData entry for this study provides a binned dataset, the C
 \begin{equation}
     \mathcal{L}(\vec\theta) = \prod_{n=1}^N p(x_i|\vec\theta),
 \end{equation}
-where $\vec\theta$ are the parameters of the model and $p$ is the probability density function. This sample has a relatively small number of entries, so we use 20 random restarts with 5 retries each. From AIC we determine that the exponential mixture with $k=2$ provides the best fit.
+where $\vec\theta$ are the parameters of the model and $p$ is the probability density function. This sample has a relatively small number of entries, so we use 20 random restarts with 5 retries each. From AIC, we determine that the exponential mixture with $k=2$ provides the best fit.
+
+% Show model selection plot
+\begin{figure}
+    \centering
+    \includegraphics[width=\linewidth]{diphoton_model_selection.png}
+    \caption{AIC (red dot) and BIC (blue x) scores for exponential mixtures on the CMS high mass diphoton dataset for $k=1,2,3,4$ mixture components.}
+    \label{fig:placeholder}
+\end{figure}
 
 % Show fit, compared with other functions
 \begin{figure}[h]
     \centering
     \includegraphics[width=\linewidth]{diphoton_fit.png}
-    \caption{Fit of original functions and exponential mixture (AIC) to CMS high mass diphoton dataset. For visualization the data/density functions are binned. The pulls (normalized residuals) are calculated as $(n_b-n_{f,b})/\sqrt{n_b}$ where $n_b$ is the number of events in bin $b$, $n_{f,b}$ is the expected number of events.}
+    \caption{Fit of original functions and exponential mixture (AIC) to CMS high mass diphoton dataset. For visualization, the data/density functions are binned. The pulls (normalized residuals) are calculated as $(n_b-n_{f,b})/\sqrt{n_b}$ where $n_b$ is the number of events in bin $b$, $n_{f,b}$ is the expected number of events.}
     \label{fig:diphoton_fit}
 \end{figure}
 
-\begin{table}[h]
-\centering
-\begin{tabular}{lcc}
-\hline
-Model & AIC & BIC \\
-\hline
-$f_1$ & 62070.4 & 62083.5 \\
-$f_2$ & 62068.6 & 62081.6 \\
-$f_3$ & 62071.5 & 62084.6 \\
-$f_4$ & 62070.4 & 62090.0 \\
-Exponential Mixture (AIC) & 62069.7 & 62095.8 \\
-\hline
-\end{tabular}
-\label{tab:diphoton_AIC_BIC}
-\caption{[tables need captions]}
-\end{table}
+% \begin{table}[h]
+% \centering
+% \begin{tabular}{lcc}
+% \hline
+% Model & AIC & BIC \\
+% \hline
+% $f_1$ & 62070.4 & 62083.5 \\
+% $f_2$ & 62068.6 & 62081.6 \\
+% $f_3$ & 62071.5 & 62084.6 \\
+% $f_4$ & 62070.4 & 62090.0 \\
+% Exponential Mixture (AIC) & 62069.7 & 62095.8 \\
+% \hline
+% \end{tabular}
+% \label{tab:diphoton_AIC_BIC}
+% \caption{[tables need captions]}
+% \end{table}
 
 % Talk about the figure
-Though the fit is performed without binning we bin the dataset for visualization. The fits of all four original functions and the exponential mixture are shown in Figure \ref{fig:diphoton_fit}. From the pull plot we see that the estimates are very similar and that the differences are small relative to the uncertainty of the data in the bins. The AIC and BIC scores are shown in Table \ref{tab:diphoton_AIC_BIC} [again, should be table 2.] where $f_2$ has the smallest AIC followed by the exponential mixture model.
+Though the fit is performed without binning, we bin the dataset for visualization. The fits of all four original functions and the exponential mixture are shown in Figure \ref{fig:diphoton_fit}. From the normalized residuals (Pull), we see that the estimates are very similar and that the differences are small relative to the uncertainty of the data in the bins. The AIC and BIC scores are shown in Table \ref{tab:diphoton_AIC_BIC} [again, should be table 2.] where $f_2$ has the smallest AIC, followed by the exponential mixture model.
 
 \section{Simulation Studies}\label{sec:toys}
 
@@ -265,7 +274,7 @@ The bias is measured by the average density difference scaled by the standard de
 \end{equation}
 where $f_t$ is the true density function that is used to generate the pseudo dataset, $f$ is the model that is being tested, and $f(x|\hat{\bm{\beta}}_t)$ is the maximum likelihood estimate of $f$ for the toys dataset $t$.
 
-Figure \ref{fig:bias} shows the relative deviation of the exponential mixture with respect to the four generating functions \ref{eq:dipoton_fns}. Each plot uses a different generating function; the fits to the other three functions are shown for scale. We analyze these plots by focusing on their minima, maxima, and crossing points. A good approximation will cross the true value many times and have less extreme biases. The exponential mixture chosen by AIC has the largest number of crossing points and a bias which is mostly contained within the 1 standard deviation interval of the true model, outperforming the one chosen by BIC. This exponential mixture (AIC) also has among the smallest biases across competing models, but also the most parameters.
+Figure \ref{fig:bias} shows the relative deviation of the exponential mixture with respect to the four generating functions \ref{eq:dipoton_fns}. Each plot uses a different generating function; the fits to the other three functions are shown for scale. We analyze these plots by focusing on their minima, maxima, and crossing points. A good approximation will cross the true value many times and have less extreme biases. The exponential mixture chosen by AIC has the largest number of crossing points and a bias that is mostly contained within the 1 standard deviation interval of the true model, outperforming the one chosen by BIC. This exponential mixture (AIC) also has among the smallest biases across competing models, but also the most parameters.
 
 \begin{figure}[h!]
 \includegraphics[width=\textwidth]{bias.png}
@@ -273,7 +282,7 @@ Figure \ref{fig:bias} shows the relative deviation of the exponential mixture wi
 \label{fig:bias}
 \end{figure}
 
-Coverage is a measure of how well the uncertainty in the estimated density covers the true density. Since we are testing exponential mixtures of varying complexity, these fits will often have parameters which are only weakly identified by the data. In these cases the likelihood surface becomes irregular due to label switching and weakly identified parameters, causing Hessian or profile based approximations of the density uncertainty to be unstable. To avoid these issues when estimating the uncertainty in the predicted density, we use the non-parametric bootstrap to estimate our confidence intervals.
+Coverage is a measure of how well the uncertainty in the estimated density covers the true density. Since we are testing exponential mixtures of varying complexity, these fits will often have parameters that are only weakly identified by the data. In these cases, the likelihood surface becomes irregular due to label switching and weakly identified parameters, causing Hessian or profile-based approximations of the density uncertainty to be unstable. To avoid these issues when estimating the uncertainty in the predicted density, we use the non-parametric bootstrap to estimate our confidence intervals.
 
 To approximate the sampling distribution of the MLE $\hat{f}(x|D)$, we generate a collection of $B$ bootstrap resamples, $\{D_1,D_2,\ldots,D_B\}$, by sampling with replacement from the original dataset D. For each resample, we re-estimate the density to produce a set of bootstrap replicas, $\{\hat{f}(x|D_b)\}_{b=1}^B$. From this set, we construct the empirical $(1-\alpha)$ confidence interval for the density function with linear interpolation.
 
@@ -302,11 +311,11 @@ The coverages are shown in figure \ref{fig:coverage}. As in the bias study, the 
 \begin{figure}
     \centering
     \includegraphics[width=0.9\linewidth]{spurious_signal.png}
-    \caption{Shown is the comparison of the (truth normalized) expected signal yield $S(x)$ for several data generating functions and the exponential mixtures. Each point represents the average over 1000 pseudo-datasets, and the bands represent the 1 standard deviation interval. The bands are only shown for the true model and the exponential mixture chosen by AIC. Each subplot represents a different data generating model.}
+    \caption{Shown is the comparison of the (truth normalized) expected signal yield $S(x)$ for several data generating functions and the exponential mixtures. Each point represents the average over 1000 pseudo-datasets, and the bands represent the 1 standard deviation interval. The bands are only shown for the true model and the exponential mixture chosen by AIC. Each subplot represents a different data-generating model.}
     \label{fig:spurious}
 \end{figure}
 
-Next we compare the spurious signal yield of the data generating models to the exponential mixtures. We fit the pseudo-datasets with a signal plus background model defined by:
+Next, we compare the spurious signal yield of the data-generating models to the exponential mixtures. We fit the pseudo-datasets with a signal plus background model defined by:
 \begin{equation}
     f(x)=N_bb(x)+N_ss(x),
 \end{equation}
@@ -318,7 +327,7 @@ For each of the 4 data generating functions given above (\ref{eq:dipoton_fns}), 
 \end{equation}
 where $T$ is the number of pseudo-datasets and $\sigma_t$ is the population standard deviation of $N_s$ given the true background model.
 
-This comparison is given in Figure \ref{fig:spurious}. The y-axis shows $S(x)$ in terms of its mean (points) plus and minus the population standard deviation across the pseudo-experiments (colored bands). Generally the variance of the exponential mixture (AIC) covers that of the true model and the differences in the mean are small compared to the variance. The bias in $S(x)$ seems to be consistent between this plot and the bias plots \ref{fig:bias} shown above; under-predicting the density corresponds to an over-prediction in the signal strength and vice versa.
+This comparison is given in Figure \ref{fig:spurious}. The y-axis shows $S(x)$ in terms of its mean (points) plus and minus the population standard deviation across the pseudo-experiments (colored bands). Generally, the variance of the exponential mixture (AIC) covers that of the true model, and the differences in the mean are small compared to the variance. The bias in $S(x)$ seems to be consistent between this plot and the bias plots \ref{fig:bias} shown above; under-predicting the density corresponds to an over-prediction in the signal strength and vice versa.
 
 \section{Discussion} \label{sec:discussion}
 % - Summary/Interpretation
@@ -326,26 +335,26 @@ This comparison is given in Figure \ref{fig:spurious}. The y-axis shows $S(x)$ i
 %         - EMM is consistent with other prediction methods
 
 
-In this paper, we have motivated the finite exponential mixture as a flexible class of functions for approximating falling distributions in high energy physics. It is flexible enough to approximate commonly used functions, but rigid enough to avoid overfitting. We have shown that the exponential mixture is competitive with existing methods on collider data with dataset sizes from $n=5,036$ to $n=28,619,185$. We compare the bias, coverage and signal yield of several existing functions with the exponential mixtures and find that, among the exponential mixtures, model selection using AIC generally yields better results than BIC. The bias using AIC has well behaved tail behavior, and the largest number of crossing points. The coverage in the bulk is consistently superior and, while the AIC model under-covers in the tail, the amount is small compared to many of the other models. This performance continues in the test for spurious signal where the expected signal yield of the AIC model is small compared the BIC model and the standard deviation of the signal strength estimates generally cover the corresponding standard deviations given by the true model. [This sounds like the end of a concluding paragraph.  Should the following ones be labelled ``Discussion"? ]
+In this paper, we have motivated the finite exponential mixture as a flexible class of functions for approximating falling distributions in high-energy physics. It is flexible enough to approximate commonly used functions, but rigid enough to avoid overfitting. We have shown that the exponential mixture is competitive with existing methods on collider data with dataset sizes from $n=5,036$ to $n=28,619,185$. We compare the bias, coverage and signal yield of several existing functions with the exponential mixtures and find that, among the exponential mixtures, model selection using AIC generally yields better results than BIC. The bias using AIC has well-behaved tail behavior and the largest number of crossing points. The coverage in the bulk is consistently superior, while the AIC model under-covers in the tail; the amount is small compared to many of the other models. This performance continues in the test for spurious signal where the expected signal yield of the AIC model is small compared to the BIC model, and the standard deviation of the signal strength estimates generally covers the corresponding standard deviations given by the true model. [This sounds like the end of a concluding paragraph.  Should the following ones be labelled ``Discussion"? ]
 
 % - Model Selection
 %     - Interpretable vs. Approximate
-Interpretable models can be difficult to define. The Dijet function, for example, relies on a number of theoretical approximations which take time to develop and may need updating as datasets grow in size. The Dijet dataset, which contains events from QCD interactions, is remarkably well described by the Dijet function despite it only needing four parameters. However, more complex signatures, such as those involving photons or electrons, may require more complex models that include more than just QCD. There is a need then for flexible models with reasonable constraints that generalize well to a wide range of datasets without extensive theoretical development. This is the niche that we hope the exponential mixture can fill. Additionally we think this modeling paradigm motivates an approach which is less interested in developing a single function approximation and more interested in developing a basis of functions which satisfy constraints from the theory. 
+Interpretable models can be difficult to define. The Dijet function, for example, relies on a number of theoretical approximations which take time to develop and may need updating as datasets grow in size. The Dijet dataset, which contains events from QCD interactions, is remarkably well described by the Dijet function despite it only needing four parameters. However, more complex signatures, such as those involving photons or electrons, may require more complex models that include more than just QCD. There is a need then for flexible models with reasonable constraints that generalize well to a wide range of datasets without extensive theoretical development. This is the niche that we hope the exponential mixture can fill. Additionally we think this modeling paradigm motivates an approach that is less interested in developing a single function approximation and more interested in developing a basis of functions that satisfy constraints from the theory. 
 
 %     - Conservative vs. Liberal
-This work is similar to other methods where researchers define an extendable class of functions and use model selection to determine the number of parameters needed to fit a dataset. The main differences are the nice theoretical properties of the exponential mixture and that the model selection methods are based on information criteria rather than hypothesis tests. For interpretable models, additional parameters change our understanding of the underlying physics, and thus it may be more useful to use conservative test based methods like the likelihood ratio test (LRT). In the case of approximation with rigid models and no interpretation of the parameters, it may be more useful to use liberal model selection metrics which value bias reduction over reduction in variance. In our simulation studies we find that AIC, which is more liberal than BIC, has both better bias and coverage than BIC, which is more conservative.
+This work is similar to other methods where researchers define an extendable class of functions and use model selection to determine the number of parameters needed to fit a dataset. The main differences are the nice theoretical properties of the exponential mixture and that the model selection methods are based on information criteria rather than hypothesis tests. For interpretable models, additional parameters change our understanding of the underlying physics, and thus it may be more useful to use conservative test based methods like the likelihood ratio test (LRT). In the case of approximation with rigid models and no interpretation of the parameters, it may be more useful to use liberal model selection metrics that value bias reduction over reduction in variance. In our simulation studies we find that AIC, which is more liberal than BIC, has both better bias and coverage than BIC, which is more conservative.
 
 % - Modeling Non-completely monotonic effects
 %     - Trigger
 %     - Beam energy availability
 %     - Kinematic thresholds
 %     - Combination of exponential mixture with other functions to model these effects
-The distributions of interest are not guaranteed to be completely monotonic. Clearly, in absence of any Standard Model (SM) resonances, energy based distributions are expected to be monotonic because higher energy events are less likely, but complete monotonicity is a stronger condition. Additionally, there are selection effects which can create non-monotonic turn-on curves at the low end of the spectrum. The analyses considered in this paper deal with this issue by setting a minimum value of the two object invariant mass which is large enough that the effects of the turn-on are negligible, but it is possible to model these effects directly. Lastly, the first term in the Dijet function $(1-x)^{p_1}$ is not completely monotonic. This term is motivated by the fact that the parton distribution functions (PDFs) fall off as $x=m_{jj}=\sqrt{s}$, which represents the maximum energy available in the collision. If the data are sensitive to this effect, one can still use the exponential mixture in conjunction with a non-completely monotonic term to model this effect.
+The distributions of interest are not guaranteed to be completely monotonic. Clearly, in absence of any Standard Model (SM) resonances, energy-based distributions are expected to be monotonic because higher energy events are less likely, but complete monotonicity is a stronger condition. Additionally, there are selection effects that can create non-monotonic turn-on curves at the low end of the spectrum. The analyses considered in this paper deal with this issue by setting a minimum value of the two object invariant mass, which is large enough that the effects of the turn-on are negligible, but it is possible to model these effects directly. Lastly, the first term in the Dijet function $(1-x)^{p_1}$ is not completely monotonic. This term is motivated by the fact that the parton distribution functions (PDFs) fall off as $x=m_{jj}=\sqrt{s}$, which represents the maximum energy available in the collision. If the data are sensitive to this effect, one can still use the exponential mixture in conjunction with a non-completely monotonic term to model this effect.
 
 % - Optimization
 %     - Random restarts vs. split and merge
 %     - Number of retries
-[This paragraph was already mostly included on page 5.] The biggest challenges in this work were related to the model selection and optimization. The likelihood surface of the exponential mixture is non-convex, with more local minima as the number of components increases. Depending on the initialization the supports of the mixing distribution can become arbitrarily close, effectively collapsing the $k$ component model to a $k-1$ component model. This problem becomes more of an issue as the number of components increases. To deal with this we used random restarts to approximate the global minimum, using more restarts for larger $k$. The split and merge method \cite{split-and-merge} is a promising alternative to random restarts which may be more efficient at approximating the global minimum. The optimization is also complicated by the observation that as we approach or surpass the number of components needed to model a dataset, the likelihood becomes very flat as a result of the optimization of exponential components with very small weights. In some cases the likelihood is so flat that the minimizer will stop and we need to manually continue the optimization until we find an acceptable minimum. This may be a symptom of overfitting or bad initialization, a dedicated study of the optimization landscape and the development of better optimization methods is an important area for future research. However, it seems reasonable to assume that when fitting a large number of pseudo-datasets once can appropriately initialize the parameters and the need for random restarts and retries can be removed, but this is something that should be tested in future work.
+[This paragraph was already mostly included on page 5.] The biggest challenges in this work were related to the model selection and optimization. The likelihood surface of the exponential mixture is non-convex, with more local minima as the number of components increases. Depending on the initialization the supports of the mixing distribution can become arbitrarily close, effectively collapsing the $k$ component model to a $k-1$ component model. This problem becomes more of an issue as the number of components increases. To deal with this we used random restarts to approximate the global minimum, using more restarts for larger $k$. The split and merge method \cite{split-and-merge} is a promising alternative to random restarts, which may be more efficient at approximating the global minimum. The optimization is also complicated by the observation that as we approach or surpass the number of components needed to model a dataset, the likelihood becomes very flat as a result of the optimization of exponential components with very small weights. In some cases the likelihood is so flat that the minimizer will stop, and we need to manually continue the optimization until we find an acceptable minimum. This may be a symptom of overfitting or bad initialization, a dedicated study of the optimization landscape and the development of better optimization methods is an important area for future research. However, it seems reasonable to assume that when fitting a large number of pseudo-datasets once can appropriately initialize the parameters, and the need for random restarts and retries can be removed, but this is something that should be tested in future work.
 
 %     - Better model selection methods for approximation, i.e. cross validation, regularization, etc.
 %        - Overfitting near the lower threshold
