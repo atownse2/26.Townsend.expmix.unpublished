@@ -71,11 +71,7 @@ consistent coverage in the bulk.
 \section{Introduction}
 \label{sec:intro}
 
-Searches for new particles are standard in high-energy physics. The Large Hadron Collider (LHC) creates these new particles by colliding beams of protons. If a new particle is produced and decays 
-within the detector, with visible decay products, one can estimate the mass of the parent 
-particle. A statistically significant excess of decays above the Standard Model (SM) expectation constitutes a discovery. The primary challenge 
-in these searches is posed by SM processes that mimic the signal, collectively referred to as ``backgrounds''. Because new physics signals are typically 
-rare, they are often obscured by these much more frequent background events, so a proper description of the background model is essential.
+Searching for new particles is a core part of high-energy physics, new particles offer us the opportunity to fundamentally extend our understanding of the universe. At the Large Hadron Collider (LHC), these searches can take the form of resonance searches—or "bump hunts"—where high-energy proton collisions are used to produce short-lived, novel states. If a new particle decays into visible final-state products within the detector, its presence can be identified as a statistically significant localized excess, or "bump," in the reconstructed invariant mass. Standard Model (SM) processes can mimic these decays of new particles; however, in the regions of interest their contributions are often non-resonant. Isolating a genuine signal on top of these sometimes large SM contributions requires an accurate description of the SM expectation.
 
 This paper focuses on background models for resonant searches, where signals are 
 represented by localized (resonant) deviations on top of a smooth falling background. The signal 
@@ -193,7 +189,7 @@ The class of exponential mixtures is equivalent to the class of completely monot
 \begin{equation}
 (-1)^n \frac{d^n}{dx^n}f(x)\geq 0
 \end{equation}
-for all $n \in \{0,1,2,\ldots\}$, which means that the function is non-negative, non-increasing, convex, etc.} \cite{bernstein}. The class of completely monotone functions is closed under addition and multiplication \cite{completetly_monotone}. For functions in this class, the finite exponential sum is guaranteed to converge uniformly \cite{McGlinn_1978}.
+for all $n \in \{0,1,2,\ldots\}$, which means that the function is non-negative, non-increasing, convex, etc.} \cite{bernstein}. The class of completely monotone functions is closed under addition and multiplication. For functions in this class, the finite exponential sum is guaranteed to converge uniformly \cite{McGlinn_1978}.
 This class does not include functions like the falling tail of a Normal distribution, for 
 example, though the approximation becomes better if one restricts the domain to be sufficiently far from the mean. In some regime the Normal distribution tail converges to the GPD with 
 $\xi=0$, which is an exponential distribution.
@@ -270,8 +266,8 @@ Accordingly, 80 random restarts per model are used, with 100 retries per fit.
 \begin{figure}
     \centering
     \includegraphics[width=\linewidth]{dijet_model_selection.png}
-    \caption{AIC (red dot) and BIC (blue x) scores for exponential mixtures on the ATLAS dijet 
-    dataset for $k=3,4,5,6$ mixture components.}
+    \caption{Relative AIC (red dot) and BIC (blue x) scores for exponential mixtures on the ATLAS dijet 
+    dataset for $k=3,4,5,6$ mixture components. The relative AIC/BIC is given by $\Delta\text{IC}_i=\text{IC}_i-\min(\text{IC})$ where $\text{IC}$ is either AIC or BIC.}
     \label{fig:dijet_AIC_BIC}
 \end{figure}
 
@@ -348,7 +344,7 @@ Given the relatively small sample size, 20 random restarts with 5 retries each a
     \centering
     \includegraphics[width=\linewidth]{diphoton_model_selection.png}
     \caption{AIC (red dot) and BIC (blue x) scores for exponential mixtures on the CMS 
-    high-mass diphoton dataset for $k=1,2,3,4$ mixture components.}
+    high-mass diphoton dataset for $k=1,2,3,4$ mixture components. The relative AIC/BIC is given by $\Delta\text{IC}_i=\text{IC}_i-\min(\text{IC})$ where $\text{IC}$ is either AIC or BIC.}
     \label{fig:diphoton_model_selection}
 \end{figure}
 
@@ -398,12 +394,12 @@ Agreement is quantified in terms of bias, coverage, and spurious signal yield.
 
 \subsection*{Bias}
 The bias is measured by the average density difference scaled by the standard deviation of the 
-density estimated using the true model. This quantity, the relative deviation $D(x)$, is given 
+density estimated using the true model. This relative bias $B(x)$, is given 
 by:
 \begin{equation}
-    D(x) = \frac{1}{T}\sum_{t=1}^T \frac{f_t(x)-f(x|\hat{\bm{\beta}}_t)}{f_t(x)}
+    B(x) = \frac{1}{T\sigma(x)}\sum_{t=1}^T (f(x|\hat{\bm{\beta}}_t)-f_{true}(x))
 \end{equation}
-where $f_t$ is the true density used to generate pseudo-dataset $t$, $f$ is the model under 
+where $f_t$ is the true density used to generate pseudo-dataset $t$, $\sigma(x)$ is the standard deviation of the estimated densities given the true model, $f$ is the model under 
 test, and $f(x|\hat{\bm{\beta}}_t)$ is the MLE of $f$ for pseudo-dataset $t$. 
 
 Figure~\ref{fig:bias} shows the relative deviation of the exponential mixture with respect to
@@ -472,36 +468,22 @@ mixtures by fitting pseudo-datasets with a signal-plus-background model:
     f(x)=N_b b(x)+N_s s(x),
 \end{equation}
 where $N_s$ is the signal yield, $s(x)$ is the signal model, $N_b$ is the number of background 
-events, and $b(x)$ is the background model. The signal model is a Normal distribution with 
-width ranging from 30 to 60~GeV at low and high mass, respectively.
-Signal yields are extracted over 1000 pseudo-datasets for signal mass hypotheses from 600 to 
-2000~GeV.
+events, and $b(x)$ is the background model. The signal model is a Normal distribution with a standard deviation ranging from 30 GeV at the lowest mass hypothesis (600 GeV) to 60 GeV at the highest (2000 GeV). Signal yields are extracted over 1000 pseudo-datasets across this mass range.
 
 For each of the four data-generating functions in eq.~\eqref{eq:diphoton_fns}, the 
 AIC- and BIC-selected exponential mixture signal yields are compared to those of the true 
-models.
-Since signal yields in the tail are much smaller than those in the bulk, the truth-normalized 
-signal yield is used:
-\begin{equation}
-    S(x) = \frac{1}{T\sigma_{t}}\sum_{i=1}^T N_s^{(i)},
-\end{equation}
-where $T$ is the number of pseudo-datasets and $\sigma_{t}$ is the population standard deviation 
-of $N_s$ under the true background model.
+models. For consistent scale, we plot the signal yield $N_s$ divided by the Hessian approximation of its uncertainty $\sigma_s$. Figure~\ref{fig:spurious} shows this quantity for several models and data-generating functions. We see that the median values of the AIC-selected exponential mixture are generally small compared to the variance in the true model and the uncertainty in the exponential mixture largely covers zero. A negative value indicates that the exponential mixture over-predicts the density in that region, the range is restricted to 2000 GeV to prevent underflow that can happen in regions of low density. The spurious signal measured here is consistent with the bias shown in Figure~\ref{fig:bias}: regions where the density is under-predicted correspond to over-prediction of the signal strength, and vice versa.
 
 \begin{figure}
     \centering
     \includegraphics[width=0.9\linewidth]{spurious_signal.png}
-    \caption{Truth-normalized expected signal yield $S(x)$ for the data-generating functions 
-    and the exponential mixtures. Each point represents the mean over $T=1000$ pseudo-datasets; bands show the 
-    $\pm1$ standard deviation interval and are displayed only for the true model and the 
+    \caption{Expected signal yield $S(x)$ for the data-generating functions 
+    and the exponential mixtures. Each point represents the median over $T=1000$ pseudo-datasets; bands represent the 68\% interval and are displayed only for the true model and the 
     AIC-selected exponential mixture.
     Each subplot corresponds to a different data-generating model.} 
     \label{fig:spurious}
 \end{figure}
 
-Figure~\ref{fig:spurious} shows that the variance of the AIC-selected exponential mixture 
-generally encompasses that of the true model, with mean differences small relative to the 
-variance. The bias in $S(x)$ is consistent with the bias shown in Figure~\ref{fig:bias}: regions where the density is under-predicted correspond to over-prediction of the signal strength, and vice versa.
 
 \section{Discussion} \label{sec:discussion}
 
@@ -575,14 +557,14 @@ To mitigate this, the rates are parameterized relative to the single-exponential
 $1/(\mathbb{E}(X)-X_{\min})$, with an upper bound of 50 times this reference rate; this choice 
 reduces the risk of severe overfitting, though a more principled regularization criterion 
 remains desirable.
-Model selection is also sensitive to the upper threshold of the fit, a consequence of the 
+Model selection is also sensitive to the upper threshold of the fit, a consequence of 
 range-dependent normalization in \texttt{RooFit}. A substantial zero-event region above the 
 last observation is included to constrain the fit in the tail, but the extent of this region 
 remains an arbitrary choice that could be improved by more principled methods.
 
 Overall, the exponential mixture is a credible, asymptotically motivated class of functions for modeling smoothly falling backgrounds, offering a reusable, constrained alternative to 
 analysis-specific functional forms.
-The principal open questions concern the optimal choice of complexity, robust optimization, and the incorporation of additional physics-motivated structure when the data require it.
+The principal open questions are concerning the optimal choice of complexity, robust optimization, and the incorporation of additional physics-motivated structure when the data require it.
 
 \section{Conclusion} \label{sec:conclusion}
 
@@ -593,19 +575,7 @@ without committing to a highly analysis-specific functional form. In the ATLAS d
 high-mass diphoton examples, the exponential mixture gave fits comparable to existing methods despite substantial differences in dataset sizes and background complexity.
 In pseudo-dataset studies based on the functions used by the published diphoton search, the AIC-selected exponential mixture has small bias, good coverage in the bulk, and small spurious signal.
 
-These results suggest that the exponential mixture is a promising candidate for modeling falling 
-backgrounds in resonant searches.
-It is broad enough to adapt to different, smoothly falling spectra while remaining rigid enough 
-to avoid most overfitting. 
-At the same time, the method has clear limitations. The distributions of interest are not 
-guaranteed to be completely monotone, and non-completely-monotone effects such as threshold 
-turn-on behavior, finite-energy cutoffs, and other process-specific features may need to be 
-modeled separately.
-Performance also depends on sensible choices for model selection, fit range, and optimization. 
-
-Overall, the finite exponential mixture is a useful general-purpose basis for falling 
-backgrounds, particularly in settings where a reusable model class with a clear statistical motivation is desired. 
-Further work on optimization, model selection, and the treatment of non-completely-monotone effects would improve the reliability and generality of this approach. 
+These results suggest that the finite exponential mixture is a promising, statistically motivated general-purpose basis for modeling falling backgrounds in resonant searches. The model is broad enough to adapt to different, smoothly falling spectra while remaining rigid enough to avoid most overfitting; however, it exhibits clear limitations. Because the distributions of interest are not guaranteed to be completely monotone, non-completely-monotone effects—such as threshold turn-on behavior, finite-energy cutoffs, and other process-specific features—may need to be modeled separately. Furthermore, because performance depends on heuristics for model selection, fit range, and optimization, further work in these areas and in the treatment of non-completely-monotone effects will be essential to improving the performance and generality of this reusable model class.
 
 % Bibliography
 
