@@ -72,6 +72,7 @@ def plot_fits(
     legend_margin=0.18,
     pull_fill_style=1001,
     pull_fill_alpha=0.3,
+    save_as=None
     ):
 
     c = ROOT.TCanvas(random_string(), "canvas", 1600, 800)
@@ -303,6 +304,9 @@ def plot_fits(
     c.Update()
     c.Draw()
 
+    if save_as is not None:
+        c.SaveAs(save_as)
+
     return c
 
 def plot_correlation_matrix(fit_result, title="Correlation Matrix", save_path=None):
@@ -381,6 +385,7 @@ def plot_information_criteria(
     legend_loc="upper center",
     sort_x=True,
     show=True,
+    save_as=None,
 ):
     if isinstance(criteria_by_x, dict):
         items = list(criteria_by_x.items())
@@ -461,6 +466,9 @@ def plot_information_criteria(
     fig.tight_layout()
     if show:
         plt.show()
+
+    if save_as is not None:
+        fig.savefig(save_as)
 
     return fig, ax1, ax2
 

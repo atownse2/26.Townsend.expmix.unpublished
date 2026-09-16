@@ -1,6 +1,7 @@
 import gc
 import os
 import pickle
+from typing import Dict, TypedDict, cast
 
 import ROOT
 import numpy as np
@@ -9,45 +10,70 @@ import matplotlib.pyplot as plt
 
 from .models import (
     evaluate_pdf,
+    ModelPrimitive,
     GaussianSignalModel,
     SignalPlusBackgroundModel,
 )
-from .fitting import fit_random_restarts, fit_n_retries, train_test_split
+from .fitting import FitResult, fit_random_restarts, fit_n_retries, train_test_split
 
 from tools import storage
 from tools import scale_out as so
 
 # Bias studies
 bias_cache = storage.ensure_cache("bias")
-def get_bias_fits_cache_path(toy_model, seed, n_toys):
-    return f"{bias_cache}/{toy_model.name}_seed{seed}_{n_toys}toys.pkl"
+
+
+class BiasFitResult(FitResult, total=False):
+    predictions: np.ndarray
+    cv_ll: float
+
+
+def get_bias_fits_cache_path(toy_model, seed, n_toys, cache_tag: str | None = None):
+    tag_suffix = f"_{cache_tag}" if cache_tag else ""
+    return f"{bias_cache}/{toy_model.name}{tag_suffix}_seed{seed}_{n_toys}toys.pkl"
 
 def run_bias_fits(
         x, toy_model, model_primitives,
         seed, n_toys, n, grid,
-        n_restarts=50, n_retries=20
-    ) -> list[dict]:
+        n_restarts, n_retries,
+        fit_options: list = [],
+        bin_toy_data: bool = False,
+    print_level: int = 0,
+    cache_tag: str | None = None,
+    ) -> Dict[str, Dict[int, BiasFitResult]]:
 
     # Set seed
     ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
 
     model_names = [mp.name for mp in model_primitives]
-    all_fit_results = {model_name: {} for model_name in model_names}
+    all_fit_results: Dict[str, Dict[int, BiasFitResult]] = {
+        model_name: {} for model_name in model_names
+    }
     for itoy in range(n_toys):
-        # Generate toy data
-        toy_data = toy_model.pdf.generate(ROOT.RooArgSet(x), n)
+        # Generate toy data. Binned generation keeps the per-fit NLL sum over
+        # n_bins instead of n events, which matters when n is large (e.g. the
+        # ATLAS dijet spectrum has ~29M events but only ~90 bins).
+        if bin_toy_data:
+            toy_data = toy_model.pdf.generateBinned(ROOT.RooArgSet(x), int(round(n)))
+        else:
+            toy_data = toy_model.pdf.generate(ROOT.RooArgSet(x), n)
 
         # Fit models to toy data
         for model_primitive in model_primitives:
             model = model_primitive(x)
             fit_result = fit_random_restarts(
                 x, toy_data, model_primitive,
-                seed, n_restarts=20, n_retries=42,
+                seed, n_restarts=n_restarts, n_retries=n_retries,
+                fit_options=fit_options,
+                print_level=print_level,
                 save=False,
             )
+            if fit_result is None:
+                continue
 
             # Extract the best fit result and predictions
             model = model_primitive(x) # Re-instantiate the model to avoid any side effects from previous fits
+            fit_result = cast(BiasFitResult, fit_result)
             model.set_params(fit_result["final_pars"])
             fit_result["predictions"] = evaluate_pdf(x, model, grid)
             #
@@ -55,7 +81,7 @@ def run_bias_fits(
             all_fit_results[model.name][itoy] = fit_result
 
     # Save result to cache
-    cache_file = get_bias_fits_cache_path(toy_model, seed, n_toys)
+    cache_file = get_bias_fits_cache_path(toy_model, seed, n_toys, cache_tag)
     with open(cache_file, "wb") as f:
         pickle.dump(all_fit_results, f)
     return all_fit_results
@@ -63,11 +89,11 @@ def run_bias_fits(
 def load_and_format_bias_results(
     toy_model_name,
     cache_file,
-    n_events=None,
-    model_selection=True,
+    model_selection: bool = True,
+    n_events: int = 0,
 ):
 
-    if model_selection and n_events is None:
+    if model_selection and n_events == 0:
         raise ValueError("n_events must be provided when model_selection is True.")
 
     seed = os.path.basename(cache_file).split("_seed", maxsplit=1)[1].split("_", maxsplit=1)[0]
@@ -129,12 +155,15 @@ def get_bias_results(
     n_toys_per_seed,
     n_events,
     model_selection=True,
+    cache_tag: str | None = None,
 ):
 
     tasks = []
     for toy_model in toy_models:
         for seed in seeds:
-            cache_file = get_bias_fits_cache_path(toy_model, seed, n_toys_per_seed)
+            cache_file = get_bias_fits_cache_path(
+                toy_model, seed, n_toys_per_seed, cache_tag
+            )
             if not os.path.exists(cache_file):
                 continue
             task = so.Task(
@@ -162,13 +191,15 @@ def get_bias_fits_CV_cache_path(toy_model, seed, n_toys, n_folds):
 
 def run_bias_fits_CV(
         x, toy_model, model_primitives,
-        seed, n_toys, n, grid, n_folds, CV_seed=42) -> list[dict]:
+    seed, n_toys, n, grid, n_folds, CV_seed=42) -> Dict[str, Dict[int, BiasFitResult]]:
 
     # Set seed
     ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
 
     model_names = [mp.name for mp in model_primitives]
-    all_fit_results = {model_name: {} for model_name in model_names}
+    all_fit_results: Dict[str, Dict[int, BiasFitResult]] = {
+        model_name: {} for model_name in model_names
+    }
     for itoy in range(n_toys):
 
         # Generate toy data
@@ -185,9 +216,12 @@ def run_bias_fits_CV(
                 seed, n_restarts=8, n_retries=42,
                 save=False,
             )
+            if fit_result is None:
+                continue
 
             # Extract the best fit result and predictions
             model = model_primitive(x)
+            fit_result = cast(BiasFitResult, fit_result)
             model.set_params(fit_result["final_pars"])
             fit_result["predictions"] = evaluate_pdf(x, model, grid)
             #
@@ -200,10 +234,14 @@ def run_bias_fits_CV(
                     seed, n_restarts=20, n_retries=42,
                     save=False,
                 )
+                if cv_fit_result is None:
+                    break
                 model.set_params(cv_fit_result["final_pars"])
                 nll = model.pdf.createNLL(test_dataset)
                 cv_nlls.append(nll.getVal())
 
+            if len(cv_nlls) != n_folds:
+                continue
             fit_result["cv_ll"] = -np.sum(cv_nlls)
             all_fit_results[model.name][itoy] = fit_result
 
@@ -322,6 +360,7 @@ def plot_bias(
     legend_loc=(0.25, 0),
     labelsize=16,
     fontsize=18,
+    legend_fontsize=None,
 ):
     # Backward compatible path: a single toy model + fit results for just that model.
     if isinstance(toy_models, (list, tuple)):
@@ -394,7 +433,7 @@ def plot_bias(
         all_labels,
         framealpha=0,
         loc=legend_loc,
-        fontsize=fontsize,
+        fontsize=legend_fontsize if legend_fontsize is not None else fontsize,
         ncol=2,
     )
     for line in legend.get_lines():
@@ -411,37 +450,81 @@ def plot_bias(
 
 # Spurious signal tests
 spurious_signal_cache = storage.ensure_cache("spurious_signal")
-def get_spurious_signal_fits_cache_path(toy_model, seed, n_toys):
+def get_spurious_signal_fits_cache_path(
+        toy_model, seed, n_toys):
     return f"{spurious_signal_cache}/{toy_model.name}_seed{seed}_{n_toys}toys_signal_fits.pkl"
 
-def run_spurious_signal_fits(x_orig, toy_model, model_primitives, seed, n_toys, n, grid) -> list[dict]:
+def run_spurious_signal_fits(
+        x_orig,
+        toy_model,
+        model_primitives,
+        seed,
+        n_toys,
+        n,
+        grid,
+        n_restarts, n_retries,
+        fit_options: list = [],
+        print_level: int = 0
+        ) -> list[dict]:
 
     # Set seed
     ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
 
+    # s+b fits require additional fit options to ensure stability and robustness.
+    sb_fit_options = fit_options.copy()
+
+    # Added robustness because we allow for negative signal strengths in the fit,
+    # which can lead to undefined regions in the likelihood.
+    if ROOT.RooFit.RecoverFromUndefinedRegions(1.0) not in fit_options:
+        sb_fit_options.append(ROOT.RooFit.RecoverFromUndefinedRegions(1.0))
+
     all_fit_results = {itoy: {sp: {} for sp in grid} for itoy in range(n_toys)}
     for itoy in range(n_toys):
         x = x_orig.clone("x")
+
         # Generate toy data
         toy_data = toy_model.pdf.generate(ROOT.RooArgSet(x), n)
 
         for model_primitive in model_primitives:
-            # Fit the background model first to stabilize the fit
+
+            # Fit the background model first to stabilize the background fit
             bkg_fit_result = fit_random_restarts(
-                x, toy_data, model_primitive,
-                seed, n_restarts=5, n_retries=5,
-                save=False,
+                x, toy_data, model_primitive, seed,
+                n_restarts=n_restarts, n_retries=n_retries,
+                save=False, fit_options=fit_options,
+                print_level=print_level
             )
             if bkg_fit_result is None:
-                print(f"Background fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
+                if print_level > 0:
+                    print(f"Background fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
                 continue
+
+            # 
+            bkg_model = model_primitive(x)
+            bkg_model.set_params(bkg_fit_result["final_pars"])
+            sig_model = GaussianSignalModel(x, grid[0][0], grid[0][1])  # Use the first signal point for initialization
+            model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=0)
+            model.set_param("n_sig", 0, constant=True)  # Set signal strength to zero for background-only fit
+            model.set_param("sig_mean", grid[0][0], constant=True)
+            model.set_param("sig_sigma", grid[0][1], constant=True)
+
+            b_fit_result = fit_n_retries(
+                model, toy_data, n_retries=n_retries,
+                fit_options=sb_fit_options,
+                print_level=print_level
+            )
+            if b_fit_result is None:
+                if print_level > 0:
+                    print(f"Background-only fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
+                continue
+            
 
             for sp in grid:
                 sig_mean, sig_width = sp
-                bkg_model = model_primitive(x)
-                bkg_model.set_params(bkg_fit_result["final_pars"])
 
-                # Get the number of background events within 1 sigma of the signal mean
+                # Scale limits on signal strength based on the number of 
+                # background events in the signal region. 
+                # This improves the fit stability
                 x.setRange("sig_range", sig_mean - sig_width, sig_mean + sig_width)
                 subset = toy_data.reduce(CutRange="sig_range")
                 n_evt_in_sig_region = subset.sumEntries()
@@ -450,29 +533,37 @@ def run_spurious_signal_fits(x_orig, toy_model, model_primitives, seed, n_toys, 
                 else:
                     max_sig = 10*np.sqrt(n_evt_in_sig_region)
 
+                # Initialize the signal + background model
+                bkg_model = model_primitive(x)
+                bkg_model.set_params(bkg_fit_result["final_pars"])
                 sig_model = GaussianSignalModel(x, sig_mean, sig_width)
                 model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=max_sig)
-                result = fit_n_retries(
-                    model, toy_data, n_attempts=5,
-                    fit_options=[ROOT.RooFit.RecoverFromUndefinedRegions(1.0)]
+
+                sb_fit_result = fit_n_retries(
+                    model, toy_data, n_retries=n_retries,
+                    fit_options=sb_fit_options,
+                    print_level=print_level
                 )
-                if result is None:
-                    print(f"Fit failed for toy {itoy}, signal point {sp}, model {model_primitive.name}. Skipping.")
+
+                if sb_fit_result is None:
+                    if print_level > 0:
+                        print(f"Fit failed for toy {itoy}, signal point {sp}, model {model_primitive.name}. Skipping.")
                     continue
 
                 # Save relevant info
                 fit_result = {
+                    "b_fit_status": b_fit_result["status"],
+                    "sb_fit_status": sb_fit_result["status"],
+                    "b_nll": b_fit_result["nll"],
+                    "sb_nll": sb_fit_result["nll"],
                     "n_sig": model.get_param("n_sig").getVal(),
-                    "n_sig_err": model.get_param("n_sig").getError(),
-                    # "n_bkg": model.n_bkg.getVal(),
-                    "bkg_model_nll": bkg_fit_result["nll"],
-                    "sig_plus_bkg_nll": result.minNll(),
                 }
+
                 all_fit_results[itoy][sp][bkg_model.name] = fit_result
 
                 # --- EXPLICIT CLEANUP (Inner Loop) ---
                 del subset
-                del result
+                del fit_result
                 del sig_model
                 del bkg_model
                 del model
@@ -496,6 +587,216 @@ def load_spurious_signal_fit_results(toy_model, seeds, n_toys_per_seed):
     results = {}
     for seed in seeds:
         cache_file = get_spurious_signal_fits_cache_path(toy_model, seed, n_toys_per_seed)
+        if not os.path.exists(cache_file):
+            print(f"Cache file {cache_file} does not exist. Skipping.")
+            continue
+        with open(cache_file, "rb") as f:
+            result = pickle.load(f)
+        for itoy, sp_results in result.items():
+            uid = f"{seed}_{itoy}"
+            results[uid] = sp_results
+    return results
+
+
+def compute_sigma_ref(spurious_signal_results, toy_model_name, signal_point):
+    """
+    sigma_s,ref = SD(n_sig), using signed n_sig from background-only fits with
+    the corresponding data-generating (truth) background family, params floating.
+    Empirical spread only -- no Hessian errors or likelihood-ratio statistics.
+
+    `spurious_signal_results` is the output of load_spurious_signal_fit_results:
+    {uid: {signal_point: {bkg_model_name: fit_result}}}.
+    """
+    n_sig_vals = [
+        sp_results[signal_point][toy_model_name]["n_sig"]
+        for sp_results in spurious_signal_results.values()
+        if signal_point in sp_results and toy_model_name in sp_results[signal_point]
+    ]
+
+    if len(n_sig_vals) < 2:
+        raise ValueError(
+            f"Not enough background-only fits ({len(n_sig_vals)}) to estimate "
+            f"sigma_ref for {toy_model_name} at signal point {signal_point}. "
+            "Run/cache more spurious-signal toys first."
+        )
+
+    return float(np.std(n_sig_vals, ddof=1))
+
+
+# Signal injection tests
+signal_injection_cache = storage.ensure_cache("signal_injection")
+
+def get_signal_injection_fits_cache_path(toy_model, signal_point, c, seed, n_toys):
+    sig_mean, sig_width = signal_point
+    return (
+        f"{signal_injection_cache}/{toy_model.name}_m{sig_mean}_w{sig_width}"
+        f"_c{c}_seed{seed}_{n_toys}toys_injection_fits.pkl"
+    )
+
+def run_signal_injection_fits(
+        x_orig,
+        toy_model,
+        model_primitives,
+        seed,
+        n_toys,
+        n,
+        grid,
+        signal_point,
+        n_sig_inj,
+        c,
+        n_restarts, n_retries,
+        fit_options: list = [],
+        print_level: int = 0
+        ) -> dict:
+    """
+    Same generation truth and fit procedure as run_spurious_signal_fits (background
+    family fit, then per-signal-point S+B fits over the full grid for model
+    selection), except toy data is generated with a Gaussian signal of expected
+    yield `n_sig_inj` injected at `signal_point` on top of the toy_model background.
+    """
+
+    # Set seed
+    ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
+
+    # s+b fits require additional fit options to ensure stability and robustness.
+    sb_fit_options = fit_options.copy()
+
+    # Added robustness because we allow for negative signal strengths in the fit,
+    # which can lead to undefined regions in the likelihood.
+    if ROOT.RooFit.RecoverFromUndefinedRegions(1.0) not in fit_options:
+        sb_fit_options.append(ROOT.RooFit.RecoverFromUndefinedRegions(1.0))
+
+    inj_mean, inj_width = signal_point
+
+    all_fit_results = {itoy: {sp: {} for sp in grid} for itoy in range(n_toys)}
+    for itoy in range(n_toys):
+        x = x_orig.clone("x")
+
+        # Generate toy data with the injected signal on top of the fixed
+        # (already fitted-to-data) background truth model.
+        bkg_model_gen = type(toy_model)(x)
+        bkg_model_gen.set_params(
+            {p.GetName(): p.getVal() for p in toy_model.params()}, constant=True
+        )
+        sig_model_gen = GaussianSignalModel(x, inj_mean, inj_width)
+        gen_model = SignalPlusBackgroundModel(
+            sig_model_gen, bkg_model_gen, max_sig=max(n_sig_inj, 1) + 1, n_bkg=n
+        )
+        gen_model.set_param("n_sig", n_sig_inj, constant=True)
+        gen_model.set_param("n_bkg", n, constant=True)
+        gen_model.set_param("sig_mean", inj_mean, constant=True)
+        gen_model.set_param("sig_sigma", inj_width, constant=True)
+
+        # Extended generation: total yield fluctuates as Poisson(n + n_sig_inj)
+        toy_data = gen_model.pdf.generate(ROOT.RooArgSet(x), ROOT.RooFit.Extended())
+
+        del gen_model, sig_model_gen, bkg_model_gen
+
+        for model_primitive in model_primitives:
+
+            # Fit the background model first to stabilize the background fit
+            bkg_fit_result = fit_random_restarts(
+                x, toy_data, model_primitive, seed,
+                n_restarts=n_restarts, n_retries=n_retries,
+                save=False, fit_options=fit_options,
+                print_level=print_level
+            )
+            if bkg_fit_result is None:
+                if print_level > 0:
+                    print(f"Background fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
+                continue
+
+            # For the background only log-likelihood build a dummy signal+background model with zero signal strength
+            bkg_model = model_primitive(x)
+            bkg_model.set_params(bkg_fit_result["final_pars"])
+            sig_model = GaussianSignalModel(x, grid[0][0], grid[0][1])  # Use the first signal point for initialization
+            model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=0)
+            model.set_param("n_sig", 0, constant=True)  # Set signal strength to zero for background-only fit
+            model.set_param("sig_mean", grid[0][0], constant=True)
+            model.set_param("sig_sigma", grid[0][1], constant=True)
+
+            b_fit_result = fit_n_retries(
+                model, toy_data, n_retries=n_retries,
+                fit_options=sb_fit_options,
+                print_level=print_level
+            )
+            if b_fit_result is None:
+                if print_level > 0:
+                    print(f"Background-only fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
+                continue
+
+            for sp in grid:
+                sig_mean, sig_width = sp
+
+                # Scale limits on signal strength based on the number of
+                # background events in the signal region.
+                # This improves the fit stability
+                x.setRange("sig_range", sig_mean - sig_width, sig_mean + sig_width)
+                subset = toy_data.reduce(CutRange="sig_range")
+                n_evt_in_sig_region = subset.sumEntries()
+                if n_evt_in_sig_region == 0:
+                    max_sig = 10
+                else:
+                    max_sig = 10*np.sqrt(n_evt_in_sig_region)
+                # Ensure the injected yield itself always lies within bounds.
+                max_sig = max(max_sig, 2 * n_sig_inj + 10)
+
+                # Initialize the signal + background model
+                bkg_model = model_primitive(x)
+                bkg_model.set_params(bkg_fit_result["final_pars"])
+                sig_model = GaussianSignalModel(x, sig_mean, sig_width)
+                model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=max_sig)
+
+                sb_fit_result = fit_n_retries(
+                    model, toy_data, n_retries=n_retries,
+                    fit_options=sb_fit_options,
+                    print_level=print_level
+                )
+
+                if sb_fit_result is None:
+                    if print_level > 0:
+                        print(f"Fit failed for toy {itoy}, signal point {sp}, model {model_primitive.name}. Skipping.")
+                    continue
+
+                # Save relevant info
+                fit_result = {
+                    "b_fit_status": b_fit_result["status"],
+                    "sb_fit_status": sb_fit_result["status"],
+                    "b_nll": b_fit_result["nll"],
+                    "sb_nll": sb_fit_result["nll"],
+                    "n_sig": model.get_param("n_sig").getVal(),
+                    "n_sig_inj": n_sig_inj,
+                    "c": c,
+                }
+
+                all_fit_results[itoy][sp][bkg_model.name] = fit_result
+
+                # --- EXPLICIT CLEANUP (Inner Loop) ---
+                del subset
+                del fit_result
+                del sig_model
+                del bkg_model
+                del model
+
+        # --- EXPLICIT CLEANUP (Outer Loop) ---
+        del toy_data
+        del x
+
+        # Periodically force Python to collect garbage to ensure C++ destructors fire
+        if itoy % 10 == 0:
+            gc.collect()
+
+    # Save result to cache
+    cache_file = get_signal_injection_fits_cache_path(toy_model, signal_point, c, seed, n_toys)
+    with open(cache_file, "wb") as f:
+        pickle.dump(all_fit_results, f)
+
+    return all_fit_results
+
+def load_signal_injection_fit_results(toy_model, signal_point, c, seeds, n_toys_per_seed):
+    results = {}
+    for seed in seeds:
+        cache_file = get_signal_injection_fits_cache_path(toy_model, signal_point, c, seed, n_toys_per_seed)
         if not os.path.exists(cache_file):
             print(f"Cache file {cache_file} does not exist. Skipping.")
             continue

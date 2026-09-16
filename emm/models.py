@@ -1,7 +1,7 @@
 import ROOT
 import numpy as np
 import random
-from typing import Any, Optional
+from typing import Any, Optional, Sequence
 
 
 # Helper functions
@@ -24,6 +24,7 @@ def print_par(par: ROOT.RooRealVar):
 # RooFit model wrapper class
 class RooFitModel:
     name = "GenericRooFitModel"
+    pdf: ROOT.RooAbsPdf
 
     def __init__(self, *args, **kwargs):
         self.kwargs = dict(kwargs)
@@ -44,11 +45,13 @@ class RooFitModel:
             self.init_params(self.par_specs)
 
         self.initialize(*args, **self.kwargs)
+        if self.kwargs.get("random_initialization", False):
+            self.randomize_params(custom_ranges=self.kwargs.get("custom_ranges", {}))
 
     def initialize(self, *args, **kwargs):
-        pass
+        raise NotImplementedError("Subclasses must implement the initialize method.")
 
-    def _pdf_name(self, default_name: str = None):
+    def _pdf_name(self, default_name: str = "pdf") -> str:
         pdf_name = self.kwargs.get("pdf_name", default_name if default_name is not None else self.name)
         if self.prefix:
             pdf_name = f"{self.prefix}_{pdf_name}"
@@ -99,8 +102,8 @@ class RooFitModel:
 
         return title, init, min_val, max_val
 
-    def init_params(self, par_specs: dict = None):
-        if par_specs is not None:
+    def init_params(self, par_specs: dict = {}):
+        if par_specs:
             self.par_specs = par_specs
 
         self._params = {}
@@ -143,7 +146,7 @@ class RooFitModel:
         for name, value in name_value_dict.items():
             self.set_param(name, value, constant=constant)
     
-    def randomize_params(self, rng=None, custom_ranges: dict = {}):
+    def randomize_params(self, custom_ranges: dict = {}, rng=np.random.default_rng()):
         """
         Randomize the parameters of the model within their ranges.
         """
@@ -152,25 +155,22 @@ class RooFitModel:
             rng = np.random.default_rng()
 
         for par in self.params():
-            if not par.isConstant():
-                if par.GetName() in custom_ranges:
-                    min_val, max_val = custom_ranges[par.GetName()]
-                else:
-                    min_val = par.getMin()
-                    max_val = par.getMax()
-                    if min_val < -1e6:
-                        min_val = -1e6
-                    if max_val > 1e6:
-                        max_val = 1e6
-                random_val = rng.uniform(min_val, max_val)
-                par.setVal(random_val)
+            if par.isConstant():
+                continue
+
+            if par.GetName() in custom_ranges:
+                min_val, max_val = custom_ranges[par.GetName()]
+            else:
+                min_val, max_val = par.getMin(), par.getMax()
+            
+            random_val = rng.uniform(min_val, max_val)
+            par.setVal(random_val)
 
     def print(self):
         """
         Print the model parameters.
         """
         print(f"Model: {self.name}")
-
         for par in self.params():
             print_par(par)
 
@@ -184,7 +184,7 @@ def evaluate_pdf(
     first = model.pdf.getVal(ROOT.RooArgSet(x))
     for i, xv in enumerate(x_vals):
         x.setVal(xv)
-        values[i] = model.pdf.getVal()
+        values[i] = model.pdf.getVal(ROOT.RooArgSet(x))
     norm = values[0] / first
     return values / norm
 
@@ -245,7 +245,7 @@ def stick_breaking_weights(n_components: int, **custom_ranges):
     
     return weights, stick_proportions[:-1]
 
-def normalization_weights(n_components: int, **custom_ranges):
+def softmax_weights(n_components: int, **custom_ranges):
     """
     Generate normalization construction weights for a mixture model.
     """
@@ -264,21 +264,19 @@ def normalization_weights(n_components: int, **custom_ranges):
         unnormalized_weights.append(w)
 
     sum_weights_str = "+".join([f"exp({w.GetName()})" for w in unnormalized_weights])
-    # sum_weights_str = "+".join([w.GetName() for w in unnormalized_weights])
     weights = [
         ROOT.RooFormulaVar(
             f"weight_{i}",
             f"Weight for component {i}",
             f"exp({unnormalized_weights[i].GetName()})/({sum_weights_str})",
-            # f"{unnormalized_weights[i].GetName()}/({sum_weights_str})",
             ROOT.RooArgList(*unnormalized_weights)
         ) for i in range(n_components)
     ]
     return weights, unnormalized_weights
 
 def mixture_pdf(
-    weights: list[ROOT.RooRealVar],
-    pdfs: list[ROOT.RooAbsPdf],
+    weights: Sequence[ROOT.RooAbsReal],
+    pdfs: Sequence[ROOT.RooAbsPdf],
         name: str = "pdf"
     ):
     assert len(weights) == len(pdfs), "Weights and PDFs must have the same length"
@@ -288,10 +286,45 @@ def mixture_pdf(
         "Mixture PDF",
         ROOT.RooArgList(*pdfs),
         ROOT.RooArgList(*weights[:-1]),
-        True
     )
     return pdf
 
+def extended_weights(
+        n_components: int,
+        n_bkg: int,
+    ):
+
+    raw_weights = [
+        ROOT.RooRealVar(
+            f"raw_weight_{i}",
+            f"Raw Weight for component {i}",
+            1/n_components, 0, 2*n_bkg
+        ) for i in range(n_components)
+    ]
+    weights = [
+        ROOT.RooFormulaVar(
+            f"weight_{i}",
+            f"Weight for component {i}",
+            f"{n_bkg}*raw_weight_{i}",
+            ROOT.RooArgList(raw_weights[i])
+        ) for i in range(n_components)
+    ]
+    return weights, raw_weights
+
+def extended_mixture_pdf(
+    weights: Sequence[ROOT.RooAbsReal],
+    pdfs: Sequence[ROOT.RooAbsPdf],
+    name: str = "pdf"
+):
+    assert len(weights) == len(pdfs), "Weights and PDFs must have the same length"
+
+    pdf = ROOT.RooAddPdf(
+        name,
+        "Extended Mixture PDF",
+        ROOT.RooArgList(*pdfs),
+        ROOT.RooArgList(*weights),
+    )
+    return pdf
 
 # Mixture models
 class MixtureModel(RooFitModel):
@@ -301,14 +334,33 @@ class MixtureModel(RooFitModel):
         self.name = f"Mixture-{n_components}"
 
         self.init_weights()
+
+        self.pdfs: Sequence[ROOT.RooAbsPdf] = []
         self.init_pdfs(x)
-        self.pdf = mixture_pdf(self.weights, self.pdfs, name=self.kwargs.get("pdf_name", self.name))
+
+        if kwargs.get("extended", False):
+            self.pdf = extended_mixture_pdf(
+                self.weights,
+                self.pdfs,
+                name=self.kwargs.get("pdf_name", self.name),
+            )
+        else:
+            self.pdf = mixture_pdf(
+                self.weights,
+                self.pdfs,
+                name=self.kwargs.get("pdf_name", self.name),
+            )
     
     def init_weights(self, **custom_ranges):
         if self.kwargs.get("stick_breaking", False):
             self.weights, self.raw_weights = stick_breaking_weights(self.n_components, **custom_ranges)
+        elif self.kwargs.get("extended", False):
+            n_data = self.kwargs.get("n_data", 0)
+            if n_data == 0:
+                raise ValueError("n_data must be provided for extended mixture models")
+            self.weights, self.raw_weights = extended_weights(self.n_components, n_data)
         else:
-            self.weights, self.raw_weights = normalization_weights(self.n_components)
+            self.weights, self.raw_weights = softmax_weights(self.n_components)
     
     def init_pdfs(self, x):
         """
@@ -325,53 +377,45 @@ class ExponentialMixtureModel(MixtureModel):
     def randomize_params(self, custom_ranges = {}, rng=np.random.default_rng()):
         if custom_ranges == {}:
 
-            rate = 0
-            for i, raw_rate in enumerate(self.raw_rates):
-                rate += rng.uniform(0.01, 3)
-                if i == len(self.raw_rates) - 1:
-                    rate += rng.uniform(0, 20)
+            # Rates
+            if self.kwargs.get("random_rates_2", False):
+                rate_diffs = rng.uniform(0.15, 1, size=self.n_components)
+                rates = np.cumsum(rate_diffs)
+            else:
+                rates = []
+                rate = 0
+                for i in range(self.n_components):
+                    rate += rng.uniform(0.01, 3)
+                    if i == len(self.raw_rates) - 1:
+                        rate += rng.uniform(0, 20)
+                    rates.append(rate)
+            
+            for raw_rate, rate in zip(self.raw_rates, rates):
                 raw_rate.setVal(rate)
-            for raw_weight in self.raw_weights:
-                if not raw_weight.isConstant():
-                    raw_weight.setVal(0)
+
+            # Weights
+            weights = rng.dirichlet(np.ones(self.n_components))
+            if self.kwargs.get("extended", False):
+                pass # Already in the correct form
+            elif self.kwargs.get("stick_breaking", False):
+                raise NotImplementedError("Randomization for stick-breaking weights is not implemented.")
+            else: # Softmax is default
+                weights = np.log(weights / weights[0])
+
+            for raw_weight, weight in zip(self.raw_weights, weights):
+                raw_weight.setVal(weight)
+
         else:
             super().randomize_params(custom_ranges=custom_ranges)
 
-    def integral(self, x, lo, hi):
-        integral = 0
-        for i in range(self.n_components):
-            rate = self.rates[i].getVal()
-            weight = self.weights[i].getVal()
-            integral += weight*(np.exp(rate*lo) - np.exp(rate*hi))
-        return integral
-
-    def init_rates(self, x, random=False):
+    def init_rates(self, x):
         self.name = f"Exponential{self.name}"
         assert "data_mean" in self.kwargs, "data_mean must be provided to initialize rates"
         data_mean = self.kwargs["data_mean"]
 
         rate_scaling = -1/(data_mean - x.getMin())
-
-        random_initialization = False
-        if "random" in self.kwargs:
-            random_initialization = self.kwargs["random"]
-
-        # Initialize raw rates
-        if "initial_raw_rates" in self.kwargs:
-            initial_raw_rates = self.kwargs["initial_raw_rates"]
-            assert len(initial_raw_rates) == self.n_components, "initial_raw_rates must have the same length as n_components"
-        elif self.kwargs.get("random_rates", False):
-            initial_raw_rates = [random.uniform(0, 1e-3 if _ == 0 else 10.0) for _ in range(self.n_components)]
-            print(f"Using random initial raw rates: {initial_raw_rates}")
-        else:
-            # initial_raw_rates = [(i+1) for i in range(self.n_components)]
-            if random_initialization:
-                initial_raw_rates = [np.random.uniform(0, 5.0) for _ in range(self.n_components)]
-            else:
-                initial_raw_rates = [(0.1+i) for i in range(self.n_components)]
-
         
-        raw_rate_specs = [(initial_raw_rates[i], 0, self.rate_max) for i in range(self.n_components)]
+        raw_rate_specs = [(0.1+i, 0, self.rate_max) for i in range(self.n_components)]
 
         self.par_specs = {
             f"raw_rate_{i}": (f"Raw rate for exponential {i}", *raw_rate_specs[i])
@@ -415,15 +459,16 @@ class ExponentialMixtureModel_Ordered(ExponentialMixtureModel):
     """Exponential mixture with ordered rates."""
     rate_min = 0.1
     rate_diff_min = 0.05
+
     def randomize_params(self, custom_ranges={}, rng=np.random.default_rng()):
         if custom_ranges == {}:
             for i, raw_rate_diff in enumerate(self.raw_rate_diffs):
                 if i == 0:
                     rate_diff = rng.uniform(self.rate_min, 1)
-                if i == len(self.raw_rate_diffs)-1:
-                    rate_diff = rng.uniform(self.rate_diff_min, 100)
-                else:
+                elif i < len(self.raw_rate_diffs)-1:
                     rate_diff = rng.uniform(self.rate_diff_min, 1)
+                else:
+                    rate_diff = rng.uniform(self.rate_diff_min, 100)
                 
                 raw_rate_diff.setVal(rate_diff)
             for raw_weight in self.raw_weights:
@@ -432,16 +477,18 @@ class ExponentialMixtureModel_Ordered(ExponentialMixtureModel):
         else:
             return super().randomize_params(custom_ranges, rng)
 
-    def init_rates(self, x, random=False):
+    def init_rates(self, x, random_initialization=False):
         self.name = f"ExponentialMixture-Ordered-{self.n_components}"
         assert "data_mean" in self.kwargs, "data_mean must be provided to initialize rates"
         rate_scaling = -1/(self.kwargs["data_mean"] - x.getMin())
 
-        if "random" in self.kwargs:
-            random = self.kwargs["random"]
+        if "random_initialization" in self.kwargs:
+            random_initialization = self.kwargs["random_initialization"]
+        elif "random" in self.kwargs:
+            random_initialization = self.kwargs["random"]
 
         mult = 1.0
-        if random:
+        if random_initialization:
             mult = np.random.uniform(0.5, 2.0)
 
         self.par_specs = {
@@ -521,7 +568,7 @@ class GPDMixtureModel(MixtureModel):
         self.pdfs = [
             ROOT.RooGenericPdf(
                 f"pdf_{i}",
-                f"{self.weights[i].GetName()}*pow(1 - ({x.GetName()}-{self.x.getMin()})/({self.x_max}-{self.x.getMin()}), {self.powers[i].GetName()})",
+                f"{self.weights[i].GetName()}*pow(1 - ({x.GetName()}-{x.getMin()})/({self.x_max}-{x.getMin()}), {self.powers[i].GetName()})",
                 ROOT.RooArgList(self.weights[i], self.powers[i], x)
             ) for i in range(self.n_components)
         ]
@@ -579,7 +626,7 @@ class Dijet(RooFitModel):
 
 class f1(RooFitModel):
     name="f_1"
-    formula = "$N x^{p_1 + p_2 \log(x)}$"
+    formula = "$N x^{p_1 + p_2 \\log(x)}$"
     default_par_specs = {
         "p1": (5.7, 1, 11),
         "p2": (-0.78, -1.0, -0.5),
@@ -596,7 +643,7 @@ class f1(RooFitModel):
 
 class f2(RooFitModel):
     name= "f_2"
-    formula = "$N\exp(p_1*x)*x^{-p_2^2}$"
+    formula = "$N\\exp(p_1*x)*x^{-p_2^2}$"
     default_par_specs = {
         "p1": (-0.0016, -0.1, 0),
         "p2": (1.8, 1, 3),
@@ -656,8 +703,51 @@ class SignalPlusBackgroundModel(RooFitModel):
         self.signal_model = signal_model
         self.background_model = background_model
 
-        max_sig = self.kwargs.get("max_sig", 100)
-        n_bkg = self.kwargs.get("n_bkg", 5036)
+        max_sig = kwargs.get("max_sig", 100)
+        n_obs = kwargs.get("n_obs", 5036)
+
+        self.par_specs = {
+            "n_sig": ("Number of signal events", 0, -max_sig, max_sig),
+        }
+
+        self.init_params(self.par_specs)
+        p = self._params
+
+        self.sig_frac = ROOT.RooFormulaVar(
+            "sig_frac",
+            "Signal fraction",
+            f"n_sig / {n_obs}",
+            ROOT.RooArgList(p["n_sig"])
+        )
+        self.bkg_frac = ROOT.RooFormulaVar(
+            "bkg_frac",
+            "Background fraction",
+            "1 - sig_frac",
+            ROOT.RooArgList(self.sig_frac)
+        )
+
+        self.pdf = ROOT.RooRealSumPdf(
+            "signal_plus_background_pdf",
+            "Signal plus Background PDF",
+            ROOT.RooArgList(self.signal_model.pdf, self.background_model.pdf),
+            ROOT.RooArgList(self.sig_frac, self.bkg_frac)
+        )
+
+    def params(self):
+        p = self._params
+        return [p["n_sig"]] + self.signal_model.params() + self.background_model.params()
+
+
+class SignalPlusBackgroundModelExtended(RooFitModel):
+    name = "SignalPlusBackgroundModelExtended"
+    par_specs = {}
+
+    def initialize(self, signal_model: RooFitModel, background_model: RooFitModel, **kwargs):
+        self.signal_model = signal_model
+        self.background_model = background_model
+
+        max_sig = kwargs.get("max_sig", 100)
+        n_bkg = kwargs.get("n_bkg", 5036)
 
         self.par_specs = {
             "n_sig": ("Number of signal events", 0, -max_sig, max_sig),
@@ -697,3 +787,5 @@ class GaussianSignalModel(RooFitModel):
             p["sig_mean"],
             p["sig_sigma"],
         )
+        p["sig_mean"].setConstant(True)
+        p["sig_sigma"].setConstant(True)
