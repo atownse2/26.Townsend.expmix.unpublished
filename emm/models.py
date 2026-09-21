@@ -39,7 +39,7 @@ class RooFitModel:
                 self.par_specs[par_name] = self.kwargs[par_name]
                 self.kwargs.pop(par_name)
 
-        self._params = {}
+        self._parameter_values = {}
 
         if self.par_specs:
             self.init_params(self.par_specs)
@@ -102,29 +102,37 @@ class RooFitModel:
 
         return title, init, min_val, max_val
 
-    def init_params(self, par_specs: dict = {}):
-        if par_specs:
+    def init_params(self, par_specs: Optional[dict] = None):
+        if par_specs is not None:
             self.par_specs = par_specs
 
-        self._params = {}
+        self._parameter_values = {}
         for name, spec in self.par_specs.items():
             title, init, min_val, max_val = self._resolve_param_spec(name, spec)
             full_name = self._param_name(name)
-            self._params[name] = ROOT.RooRealVar(full_name, title, init, min_val, max_val)
+            self._parameter_values[name] = ROOT.RooRealVar(full_name, title, init, min_val, max_val)
 
-        return self._params
+        return self._parameter_values
 
-    def params(self):
+    def _params(self):
+        return list(self._parameter_values.values())
+
+    def params(self, floating_only=True):
         """
-        Return the parameters of the model.
+        Return model parameters, optionally excluding constant parameters.
         """
-        return list(self._params.values())
-    
+        params = []
+        for par in self._params():
+            if floating_only and par.isConstant():
+                continue
+            params.append(par)
+        return params
+
     def get_param(self, name: str):
         """
         Get a parameter by name.
         """
-        for par in self.params():
+        for par in self.params(floating_only=False):
             if par.GetName() == name:
                 return par
         raise ValueError(f"Parameter {name} not found in model parameters")
@@ -146,13 +154,17 @@ class RooFitModel:
         for name, value in name_value_dict.items():
             self.set_param(name, value, constant=constant)
     
-    def randomize_params(self, custom_ranges: dict = {}, rng=np.random.default_rng()):
+    def randomize_params(
+            self,
+            custom_ranges: Optional[dict] = None,
+            rng: Optional[np.random.Generator] = None,
+    ):
         """
         Randomize the parameters of the model within their ranges.
         """
 
-        if rng is None:
-            rng = np.random.default_rng()
+        custom_ranges = {} if custom_ranges is None else custom_ranges
+        rng = np.random.default_rng() if rng is None else rng
 
         for par in self.params():
             if par.isConstant():
@@ -180,11 +192,12 @@ def evaluate_pdf(
         x_vals,
     ):
     values = np.zeros_like(x_vals)
+    normalization_set = ROOT.RooArgSet(x)
     x.setVal(x_vals[0])
-    first = model.pdf.getVal(ROOT.RooArgSet(x))
+    first = model.pdf.getVal(normalization_set)
     for i, xv in enumerate(x_vals):
         x.setVal(xv)
-        values[i] = model.pdf.getVal(ROOT.RooArgSet(x))
+        values[i] = model.pdf.getVal(normalization_set)
     norm = values[0] / first
     return values / norm
 
@@ -212,47 +225,46 @@ class ModelPrimitive:
 
 
 # Mixture model helper functions
-def stick_breaking_weights(n_components: int, **custom_ranges):
+def stick_breaking_weights(n_components: int, prefix: str = "", **custom_ranges):
     """
     Generate stick-breaking weights for a mixture model.
     """
     stick_proportions = [
         ROOT.RooRealVar(
-            f"raw_weight_{i}",
+            f"{prefix}raw_weight_{i}",
             f"Stick proportion {i}",
             1/(n_components - i),
-            *custom_ranges.get(f"raw_weight_{i}", (0, 1))  
+            *custom_ranges.get(f"raw_weight_{i}", (0, 1))
         ) for i in range(n_components - 1)
     ]
     stick_proportions.append(ROOT.RooRealVar(
-        f"raw_weight_{n_components-1}",
+        f"{prefix}raw_weight_{n_components-1}",
         f"Stick proportion {n_components-1}",
         1 # Fixed to 1
     ))
 
     weights = []
     for i in range(n_components):
-        prod_terms = [f"(1-raw_weight_{j})" for j in range(i)]
+        prod_terms = [f"(1-{prefix}raw_weight_{j})" for j in range(i)]
         prod_str = "*".join(prod_terms) if prod_terms else "1"
-        # print(f"Formula for weight_{i}: raw_weight_{i} * {prod_str}")
         weight = ROOT.RooFormulaVar(
-                    f"weight_{i}",
+                f"{prefix}weight_{i}",
                     f"Weight for component {i}",
-                    f"raw_weight_{i} * {prod_str}",
+                f"{prefix}raw_weight_{i} * {prod_str}",
                     ROOT.RooArgList(*stick_proportions[:i+1])
         )
         weights.append(weight)
     
     return weights, stick_proportions[:-1]
 
-def softmax_weights(n_components: int, **custom_ranges):
+def softmax_weights(n_components: int, prefix: str = "", **custom_ranges):
     """
     Generate normalization construction weights for a mixture model.
     """
     unnormalized_weights = []
     for i in range(n_components):
         w = ROOT.RooRealVar(
-                f"raw_weight_{i}",
+            f"{prefix}raw_weight_{i}",
                 f"Unnormalized weight for component {i}",
                 custom_ranges.get(f"raw_weight_{i}", 0+i),
             )
@@ -263,10 +275,10 @@ def softmax_weights(n_components: int, **custom_ranges):
             w.setConstant(False)
         unnormalized_weights.append(w)
 
-    sum_weights_str = "+".join([f"exp({w.GetName()})" for w in unnormalized_weights])
+    sum_weights_str = "+".join(f"exp({w.GetName()})" for w in unnormalized_weights)
     weights = [
         ROOT.RooFormulaVar(
-            f"weight_{i}",
+            f"{prefix}weight_{i}",
             f"Weight for component {i}",
             f"exp({unnormalized_weights[i].GetName()})/({sum_weights_str})",
             ROOT.RooArgList(*unnormalized_weights)
@@ -277,7 +289,7 @@ def softmax_weights(n_components: int, **custom_ranges):
 def mixture_pdf(
     weights: Sequence[ROOT.RooAbsReal],
     pdfs: Sequence[ROOT.RooAbsPdf],
-        name: str = "pdf"
+    name: str = "pdf",
     ):
     assert len(weights) == len(pdfs), "Weights and PDFs must have the same length"
 
@@ -292,18 +304,19 @@ def mixture_pdf(
 def extended_weights(
         n_components: int,
         n_bkg: int,
+    prefix: str = "",
     ):
 
     raw_weights = [
         ROOT.RooRealVar(
-            f"raw_weight_{i}",
+            f"{prefix}raw_weight_{i}",
             f"Raw Weight for component {i}",
             1/n_components, 0, 2*n_bkg
         ) for i in range(n_components)
     ]
     weights = [
         ROOT.RooFormulaVar(
-            f"weight_{i}",
+            f"{prefix}weight_{i}",
             f"Weight for component {i}",
             f"{n_bkg}*raw_weight_{i}",
             ROOT.RooArgList(raw_weights[i])
@@ -342,25 +355,31 @@ class MixtureModel(RooFitModel):
             self.pdf = extended_mixture_pdf(
                 self.weights,
                 self.pdfs,
-                name=self.kwargs.get("pdf_name", self.name),
+                name=self._pdf_name(self.name),
             )
         else:
             self.pdf = mixture_pdf(
                 self.weights,
                 self.pdfs,
-                name=self.kwargs.get("pdf_name", self.name),
+                name=self._pdf_name(self.name),
             )
     
     def init_weights(self, **custom_ranges):
         if self.kwargs.get("stick_breaking", False):
-            self.weights, self.raw_weights = stick_breaking_weights(self.n_components, **custom_ranges)
+            self.weights, self.raw_weights = stick_breaking_weights(
+                self.n_components, prefix=f"{self.prefix}_", **custom_ranges
+            )
         elif self.kwargs.get("extended", False):
             n_data = self.kwargs.get("n_data", 0)
             if n_data == 0:
                 raise ValueError("n_data must be provided for extended mixture models")
-            self.weights, self.raw_weights = extended_weights(self.n_components, n_data)
+            self.weights, self.raw_weights = extended_weights(
+                self.n_components, n_data, prefix=f"{self.prefix}_"
+            )
         else:
-            self.weights, self.raw_weights = softmax_weights(self.n_components)
+            self.weights, self.raw_weights = softmax_weights(
+                self.n_components, prefix=f"{self.prefix}_"
+            )
     
     def init_pdfs(self, x):
         """
@@ -374,8 +393,14 @@ class ExponentialMixtureModel(MixtureModel):
 
     default_par_specs = {}
 
-    def randomize_params(self, custom_ranges = {}, rng=np.random.default_rng()):
-        if custom_ranges == {}:
+    def randomize_params(
+            self,
+            custom_ranges: Optional[dict] = None,
+            rng: Optional[np.random.Generator] = None,
+    ):
+        custom_ranges = {} if custom_ranges is None else custom_ranges
+        rng = np.random.default_rng() if rng is None else rng
+        if not custom_ranges:
 
             # Rates
             if self.kwargs.get("random_rates_2", False):
@@ -422,15 +447,15 @@ class ExponentialMixtureModel(MixtureModel):
             for i in range(self.n_components)
         }
         self.init_params(self.par_specs)
-        self.raw_rates = [self._params[f"raw_rate_{i}"] for i in range(self.n_components)]
+        self.raw_rates = [self._parameter_values[f"raw_rate_{i}"] for i in range(self.n_components)]
 
         self.rates = [
             ROOT.RooFormulaVar(
-                f"rate_{i}",
+                self._param_name(f"rate_{i}"),
                 f"Rate scaled by data for exponential {i}",
-                f"{rate_scaling}*raw_rate_{i}",
+                f"{rate_scaling}*{raw_rate.GetName()}",
                 ROOT.RooArgList(self.raw_rates[i])
-            ) for i in range(self.n_components)
+            ) for i, raw_rate in enumerate(self.raw_rates)
         ]
     
     def init_pdfs(self, x):
@@ -443,13 +468,13 @@ class ExponentialMixtureModel(MixtureModel):
         self.pdfs = [
             ROOT.RooExponential(
             # ROOT.MyExponential(
-                f"pdf_{i}",
+                self._param_name(f"pdf_{i}"),
                 f"Exponential PDF {i}",
                 x, self.rates[i]
             ) for i in range(self.n_components)    
         ]
     
-    def params(self):
+    def _params(self):
         """
         Return the parameters of the model.
         """
@@ -460,8 +485,14 @@ class ExponentialMixtureModel_Ordered(ExponentialMixtureModel):
     rate_min = 0.1
     rate_diff_min = 0.05
 
-    def randomize_params(self, custom_ranges={}, rng=np.random.default_rng()):
-        if custom_ranges == {}:
+    def randomize_params(
+            self,
+            custom_ranges: Optional[dict] = None,
+            rng: Optional[np.random.Generator] = None,
+    ):
+        custom_ranges = {} if custom_ranges is None else custom_ranges
+        rng = np.random.default_rng() if rng is None else rng
+        if not custom_ranges:
             for i, raw_rate_diff in enumerate(self.raw_rate_diffs):
                 if i == 0:
                     rate_diff = rng.uniform(self.rate_min, 1)
@@ -501,7 +532,7 @@ class ExponentialMixtureModel_Ordered(ExponentialMixtureModel):
             for i in range(self.n_components)
         }
         self.init_params(self.par_specs)
-        self.raw_rate_diffs = [self._params[f"raw_rate_diff_{i}"] for i in range(self.n_components)]
+        self.raw_rate_diffs = [self._parameter_values[f"raw_rate_diff_{i}"] for i in range(self.n_components)]
 
         self.rates = [
             ROOT.RooFormulaVar(
@@ -512,7 +543,7 @@ class ExponentialMixtureModel_Ordered(ExponentialMixtureModel):
             ) for i in range(self.n_components)
         ]
 
-    def params(self):
+    def _params(self):
         """
         Return the parameters of the model.
         """
@@ -538,8 +569,8 @@ class LomaxMixtureModel(MixtureModel):
         self.init_betas(x)
         self.par_specs = {**self.alpha_specs, **self.beta_specs}
         self.init_params(self.par_specs)
-        self.alphas = [self._params[f"alpha_{i}"] for i in range(self.n_components)]
-        self.betas = [self._params[f"beta_{i}"] for i in range(self.n_components)]
+        self.alphas = [self._parameter_values[f"alpha_{i}"] for i in range(self.n_components)]
+        self.betas = [self._parameter_values[f"beta_{i}"] for i in range(self.n_components)]
         
         self.pdfs = [
             ROOT.RooGenericPdf(
@@ -553,7 +584,7 @@ class LomaxMixtureModel(MixtureModel):
             ) for i in range(self.n_components)
         ]
 
-    def params(self):
+    def _params(self):
         return self.alphas + self.betas + self.raw_weights
 
 class GPDMixtureModel(MixtureModel):
@@ -579,9 +610,9 @@ class GPDMixtureModel(MixtureModel):
             for i in range(self.n_components)
         }
         self.init_params(self.par_specs)
-        self.powers = [self._params[f"power_{i}"] for i in range(self.n_components)]
+        self.powers = [self._parameter_values[f"power_{i}"] for i in range(self.n_components)]
     
-    def params(self):
+    def _params(self):
         """
         Return the parameters of the model.
         """
@@ -598,7 +629,7 @@ class GeneralizedPareto(RooFitModel):
     }
 
     def initialize(self, x, **kwargs):
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooGenericPdf(
             self._pdf_name(self.name),
@@ -615,7 +646,7 @@ class Dijet(RooFitModel):
     }
 
     def initialize(self, x, **kwargs):
-        p = self._params
+        p = self._parameter_values
 
         fn = lambda x, p1, p2, p3: f"pow(1 - {x}, {p1}) * pow({x}, {p2} + {p3} * TMath::Log({x}))"
         self.pdf = ROOT.RooGenericPdf(
@@ -633,7 +664,7 @@ class f1(RooFitModel):
     }
 
     def initialize(self, x, **kwargs):
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooGenericPdf(
             self._pdf_name(self.name),
@@ -650,7 +681,7 @@ class f2(RooFitModel):
     }
 
     def initialize(self, x, **kwargs):
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooGenericPdf(
             self._pdf_name(self.name),
@@ -667,7 +698,7 @@ class f3(RooFitModel):
     }
 
     def initialize(self, x, **kwargs):
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooGenericPdf(
             self._pdf_name(self.name),
@@ -685,7 +716,7 @@ class f4(RooFitModel):
     }
 
     def initialize(self, x, **kwargs):
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooGenericPdf(
             self._pdf_name(self.name),
@@ -695,6 +726,41 @@ class f4(RooFitModel):
 
 
 # Models with signal
+def signal_lower_bound(x, signal, background, *,
+                       signal_range, nb=None,
+                       ngrid=1001, margin=0.01):
+    """Approximate bound at the current component parameters."""
+    obs = ROOT.RooArgSet(x)
+    old_x = x.getVal()
+    bounds = []
+
+    lo = max(x.getMin(), signal_range[0])
+    hi = min(x.getMax(), signal_range[1])
+    if lo >= hi:
+        raise ValueError("Signal region does not overlap the fit range")
+
+    try:
+        for value in np.linspace(lo, hi, ngrid):
+            x.setVal(float(value))
+            s = signal.getVal(obs)
+            b = background.getVal(obs)
+
+            if not np.isfinite(s + b) or s < 0 or b < 0:
+                raise ValueError("Invalid component PDF value")
+
+            if nb is None:
+                if s > b:
+                    bounds.append(-b / (s - b))
+            elif s > 0:
+                bounds.append(-nb * b / s)
+    finally:
+        x.setVal(old_x)
+
+    if not bounds:
+        raise ValueError("No finite lower bound found in signal region")
+
+    return (1.0 - margin) * max(bounds)
+
 class SignalPlusBackgroundModel(RooFitModel):
     name = "SignalPlusBackgroundModel"
     par_specs = {}
@@ -703,15 +769,30 @@ class SignalPlusBackgroundModel(RooFitModel):
         self.signal_model = signal_model
         self.background_model = background_model
 
-        max_sig = kwargs.get("max_sig", 100)
         n_obs = kwargs.get("n_obs", 5036)
 
+        # Get bounds on the signal fraction
+        signal_range = kwargs.get("signal_range", (
+            signal_model.get_param("mean").getVal() - 2 * signal_model.get_param("sigma").getVal(),
+            signal_model.get_param("mean").getVal() + 2 * signal_model.get_param("sigma").getVal(),
+        ))
+        signal_lower_bound_value = signal_lower_bound(
+            x=kwargs.get("x"),
+            signal=signal_model.pdf,
+            background=background_model.pdf,
+            signal_range=signal_range,
+            nb=n_obs,
+        )
+
+        min_sig = kwargs.get("min_sig", signal_lower_bound_value)
+        max_sig = kwargs.get("max_sig", 100)
+
         self.par_specs = {
-            "n_sig": ("Number of signal events", 0, -max_sig, max_sig),
+            "n_sig": ("Number of signal events", 0, min_sig, max_sig),
         }
 
         self.init_params(self.par_specs)
-        p = self._params
+        p = self._parameter_values
 
         self.sig_frac = ROOT.RooFormulaVar(
             "sig_frac",
@@ -733,8 +814,8 @@ class SignalPlusBackgroundModel(RooFitModel):
             ROOT.RooArgList(self.sig_frac, self.bkg_frac)
         )
 
-    def params(self):
-        p = self._params
+    def _params(self):
+        p = self._parameter_values
         return [p["n_sig"]] + self.signal_model.params() + self.background_model.params()
 
 
@@ -746,15 +827,32 @@ class SignalPlusBackgroundModelExtended(RooFitModel):
         self.signal_model = signal_model
         self.background_model = background_model
 
+        n_obs = kwargs.get("n_obs", 5036)
+
+        # Get bounds on the signal fraction
+        signal_range = kwargs.get("signal_range", (
+            signal_model.get_param("mean").getVal() - 2 * signal_model.get_param("sigma").getVal(),
+            signal_model.get_param("mean").getVal() + 2 * signal_model.get_param("sigma").getVal(),
+        ))
+        signal_lower_bound_value = signal_lower_bound(
+            x=kwargs.get("x"),
+            signal=signal_model.pdf,
+            background=background_model.pdf,
+            signal_range=signal_range,
+            nb=n_obs,
+        )
+
+        min_sig = kwargs.get("min_sig", signal_lower_bound_value)
         max_sig = kwargs.get("max_sig", 100)
-        n_bkg = kwargs.get("n_bkg", 5036)
+        if min_sig > max_sig:
+            raise ValueError("min_sig must not exceed max_sig")
 
         self.par_specs = {
-            "n_sig": ("Number of signal events", 0, -max_sig, max_sig),
-            "n_bkg": ("Number of background events", n_bkg, 0.5*n_bkg, 2*n_bkg),
+            "n_sig": ("Number of signal events", 0, min_sig, max_sig),
+            "n_bkg": ("Number of background events", n_obs, 0.5*n_obs, 2*n_obs),
         }
         self.init_params(self.par_specs)
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooAddPdf(
             "signal_plus_background_pdf",
@@ -764,8 +862,8 @@ class SignalPlusBackgroundModelExtended(RooFitModel):
         )
 
     
-    def params(self):
-        p = self._params
+    def _params(self):
+        p = self._parameter_values
         return [p["n_sig"], p["n_bkg"]] + self.signal_model.params() + self.background_model.params()
 
 class GaussianSignalModel(RooFitModel):
@@ -774,18 +872,18 @@ class GaussianSignalModel(RooFitModel):
 
     def initialize(self, x, mean, width, **kwargs):
         self.par_specs = {
-            "sig_mean": ("Signal mean", mean, 0.9*mean, 1.1*mean),
-            "sig_sigma": ("Signal sigma", width, 0.8*width, 1.2*width),
+            "mean": ("Signal mean", mean, 0.9*mean, 1.1*mean),
+            "sigma": ("Signal sigma", width, 0.8*width, 1.2*width),
         }
         self.init_params(self.par_specs)
-        p = self._params
+        p = self._parameter_values
 
         self.pdf = ROOT.RooGaussian(
             self._param_name("sig_pdf"),
             "Gaussian Signal PDF",
             x,
-            p["sig_mean"],
-            p["sig_sigma"],
+            p["mean"],
+            p["sigma"],
         )
-        p["sig_mean"].setConstant(True)
-        p["sig_sigma"].setConstant(True)
+        p["mean"].setConstant(True)
+        p["sigma"].setConstant(True)

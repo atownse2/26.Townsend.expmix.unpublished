@@ -13,6 +13,7 @@ from .models import (
     ModelPrimitive,
     GaussianSignalModel,
     SignalPlusBackgroundModel,
+    SignalPlusBackgroundModelExtended,
 )
 from .fitting import FitResult, fit_random_restarts, fit_n_retries, train_test_split
 
@@ -36,7 +37,7 @@ def run_bias_fits(
         x, toy_model, model_primitives,
         seed, n_toys, n, grid,
         n_restarts, n_retries,
-        fit_options: list = [],
+        fit_options: list | None = None,
         bin_toy_data: bool = False,
     print_level: int = 0,
     cache_tag: str | None = None,
@@ -452,7 +453,16 @@ def plot_bias(
 spurious_signal_cache = storage.ensure_cache("spurious_signal")
 def get_spurious_signal_fits_cache_path(
         toy_model, seed, n_toys):
-    return f"{spurious_signal_cache}/{toy_model.name}_seed{seed}_{n_toys}toys_signal_fits.pkl"
+    return (
+        f"{spurious_signal_cache}/{toy_model.name}_seed{seed}_{n_toys}toys"
+        "_extended_signed_yield_v1_signal_fits.pkl"
+    )
+
+def _signal_yield_bounds(n_events_in_signal_region, n_bkg):
+    """Return stable signed signal-yield bounds for an extended fit."""
+    fluctuation_scale = 10 * np.sqrt(max(n_events_in_signal_region, 1))
+    min_sig = max(-fluctuation_scale, -0.5 * n_bkg + 1e-6)
+    return min_sig, fluctuation_scale
 
 def run_spurious_signal_fits(
         x_orig,
@@ -463,22 +473,26 @@ def run_spurious_signal_fits(
         n,
         grid,
         n_restarts, n_retries,
-        fit_options: list = [],
-        print_level: int = 0
-        ) -> list[dict]:
+        fit_options: list | None = None,
+        print_level: int = 0,
+        save_as="default",
+        ) -> list:
 
     # Set seed
     ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
 
-    # s+b fits require additional fit options to ensure stability and robustness.
-    sb_fit_options = fit_options.copy()
+    base_fit_options = list(fit_options) if fit_options is not None else []
+    sb_fit_options = base_fit_options.copy()
 
     # Added robustness because we allow for negative signal strengths in the fit,
     # which can lead to undefined regions in the likelihood.
-    if ROOT.RooFit.RecoverFromUndefinedRegions(1.0) not in fit_options:
+    if not any(option.GetName() == "RecoverFromUndefinedRegions" for option in sb_fit_options):
         sb_fit_options.append(ROOT.RooFit.RecoverFromUndefinedRegions(1.0))
+    if not any(option.GetName() == "Extended" for option in sb_fit_options):
+        sb_fit_options.append(ROOT.RooFit.Extended(True))
 
-    all_fit_results = {itoy: {sp: {} for sp in grid} for itoy in range(n_toys)}
+    # all_fit_results = {itoy: {sp: {} for sp in grid} for itoy in range(n_toys)}
+    all_fit_results = []
     for itoy in range(n_toys):
         x = x_orig.clone("x")
 
@@ -491,7 +505,7 @@ def run_spurious_signal_fits(
             bkg_fit_result = fit_random_restarts(
                 x, toy_data, model_primitive, seed,
                 n_restarts=n_restarts, n_retries=n_retries,
-                save=False, fit_options=fit_options,
+                save=False, fit_options=base_fit_options,
                 print_level=print_level
             )
             if bkg_fit_result is None:
@@ -499,17 +513,17 @@ def run_spurious_signal_fits(
                     print(f"Background fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
                 continue
 
-            # 
+            # Use an extended background-only likelihood with a fixed zero signal.
             bkg_model = model_primitive(x)
             bkg_model.set_params(bkg_fit_result["final_pars"])
-            sig_model = GaussianSignalModel(x, grid[0][0], grid[0][1])  # Use the first signal point for initialization
-            model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=0)
-            model.set_param("n_sig", 0, constant=True)  # Set signal strength to zero for background-only fit
-            model.set_param("sig_mean", grid[0][0], constant=True)
-            model.set_param("sig_sigma", grid[0][1], constant=True)
+            sig_model = GaussianSignalModel(x, grid[0][0], grid[0][1])
+            bkg_only_model = SignalPlusBackgroundModelExtended(
+                sig_model, bkg_model, min_sig=0, max_sig=0, n_obs=n, x=x
+            )
+            bkg_only_model.set_param("n_sig", 0, constant=True)
 
             b_fit_result = fit_n_retries(
-                model, toy_data, n_retries=n_retries,
+                bkg_only_model, toy_data, n_retries=n_retries,
                 fit_options=sb_fit_options,
                 print_level=print_level
             )
@@ -517,7 +531,10 @@ def run_spurious_signal_fits(
                 if print_level > 0:
                     print(f"Background-only fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
                 continue
-            
+
+            del sig_model
+            del bkg_model
+            del bkg_only_model
 
             for sp in grid:
                 sig_mean, sig_width = sp
@@ -528,16 +545,20 @@ def run_spurious_signal_fits(
                 x.setRange("sig_range", sig_mean - sig_width, sig_mean + sig_width)
                 subset = toy_data.reduce(CutRange="sig_range")
                 n_evt_in_sig_region = subset.sumEntries()
-                if n_evt_in_sig_region == 0:
-                    max_sig = 10
-                else:
-                    max_sig = 10*np.sqrt(n_evt_in_sig_region)
+                min_sig, max_sig = _signal_yield_bounds(n_evt_in_sig_region, n)
 
                 # Initialize the signal + background model
                 bkg_model = model_primitive(x)
                 bkg_model.set_params(bkg_fit_result["final_pars"])
                 sig_model = GaussianSignalModel(x, sig_mean, sig_width)
-                model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=max_sig)
+                model = SignalPlusBackgroundModelExtended(
+                    sig_model,
+                    bkg_model,
+                    min_sig=min_sig,
+                    max_sig=max_sig,
+                    n_obs=n,
+                    x=x,
+                )
 
                 sb_fit_result = fit_n_retries(
                     model, toy_data, n_retries=n_retries,
@@ -552,14 +573,23 @@ def run_spurious_signal_fits(
 
                 # Save relevant info
                 fit_result = {
-                    "b_fit_status": b_fit_result["status"],
-                    "sb_fit_status": sb_fit_result["status"],
-                    "b_nll": b_fit_result["nll"],
-                    "sb_nll": sb_fit_result["nll"],
+                    "toy_model_name": toy_model.name,
+                    "toy_index": itoy,
+                    "seed": seed,
+                    "signal_mean": sig_mean,
+                    "signal_width": sig_width,
+                    "bkg_model_name": bkg_model.name,
+                    "bkg_random_restart_min_nll": bkg_fit_result["nll"],
+                    "bkg_only_fit_status": b_fit_result["status"],
+                    "bkg_only_nll": b_fit_result["nll"],
+                    "alt_fit_status": sb_fit_result["status"],
+                    "alt_nll": sb_fit_result["nll"],
+                    "alt_n_sig": model.get_param("n_sig").getVal(),
                     "n_sig": model.get_param("n_sig").getVal(),
                 }
 
-                all_fit_results[itoy][sp][bkg_model.name] = fit_result
+                # all_fit_results[itoy][sp][bkg_model.name] = fit_result
+                all_fit_results.append(fit_result)
 
                 # --- EXPLICIT CLEANUP (Inner Loop) ---
                 del subset
@@ -576,15 +606,19 @@ def run_spurious_signal_fits(
         if itoy % 10 == 0:
             gc.collect()
 
-    # Save result to cache
-    cache_file = get_spurious_signal_fits_cache_path(toy_model, seed, n_toys)
-    with open(cache_file, "wb") as f:
-        pickle.dump(all_fit_results, f)
+    if save_as is not None:
+        cache_file = (
+            get_spurious_signal_fits_cache_path(toy_model, seed, n_toys)
+            if save_as == "default" else save_as
+        )
+        with open(cache_file, "wb") as f:
+            pickle.dump(all_fit_results, f)
 
     return all_fit_results
 
 def load_spurious_signal_fit_results(toy_model, seeds, n_toys_per_seed):
-    results = {}
+    """Load extended-likelihood spurious-signal fits for the requested seeds."""
+    results = []
     for seed in seeds:
         cache_file = get_spurious_signal_fits_cache_path(toy_model, seed, n_toys_per_seed)
         if not os.path.exists(cache_file):
@@ -592,217 +626,7 @@ def load_spurious_signal_fit_results(toy_model, seeds, n_toys_per_seed):
             continue
         with open(cache_file, "rb") as f:
             result = pickle.load(f)
-        for itoy, sp_results in result.items():
-            uid = f"{seed}_{itoy}"
-            results[uid] = sp_results
-    return results
-
-
-def compute_sigma_ref(spurious_signal_results, toy_model_name, signal_point):
-    """
-    sigma_s,ref = SD(n_sig), using signed n_sig from background-only fits with
-    the corresponding data-generating (truth) background family, params floating.
-    Empirical spread only -- no Hessian errors or likelihood-ratio statistics.
-
-    `spurious_signal_results` is the output of load_spurious_signal_fit_results:
-    {uid: {signal_point: {bkg_model_name: fit_result}}}.
-    """
-    n_sig_vals = [
-        sp_results[signal_point][toy_model_name]["n_sig"]
-        for sp_results in spurious_signal_results.values()
-        if signal_point in sp_results and toy_model_name in sp_results[signal_point]
-    ]
-
-    if len(n_sig_vals) < 2:
-        raise ValueError(
-            f"Not enough background-only fits ({len(n_sig_vals)}) to estimate "
-            f"sigma_ref for {toy_model_name} at signal point {signal_point}. "
-            "Run/cache more spurious-signal toys first."
-        )
-
-    return float(np.std(n_sig_vals, ddof=1))
-
-
-# Signal injection tests
-signal_injection_cache = storage.ensure_cache("signal_injection")
-
-def get_signal_injection_fits_cache_path(toy_model, signal_point, c, seed, n_toys):
-    sig_mean, sig_width = signal_point
-    return (
-        f"{signal_injection_cache}/{toy_model.name}_m{sig_mean}_w{sig_width}"
-        f"_c{c}_seed{seed}_{n_toys}toys_injection_fits.pkl"
-    )
-
-def run_signal_injection_fits(
-        x_orig,
-        toy_model,
-        model_primitives,
-        seed,
-        n_toys,
-        n,
-        grid,
-        signal_point,
-        n_sig_inj,
-        c,
-        n_restarts, n_retries,
-        fit_options: list = [],
-        print_level: int = 0
-        ) -> dict:
-    """
-    Same generation truth and fit procedure as run_spurious_signal_fits (background
-    family fit, then per-signal-point S+B fits over the full grid for model
-    selection), except toy data is generated with a Gaussian signal of expected
-    yield `n_sig_inj` injected at `signal_point` on top of the toy_model background.
-    """
-
-    # Set seed
-    ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
-
-    # s+b fits require additional fit options to ensure stability and robustness.
-    sb_fit_options = fit_options.copy()
-
-    # Added robustness because we allow for negative signal strengths in the fit,
-    # which can lead to undefined regions in the likelihood.
-    if ROOT.RooFit.RecoverFromUndefinedRegions(1.0) not in fit_options:
-        sb_fit_options.append(ROOT.RooFit.RecoverFromUndefinedRegions(1.0))
-
-    inj_mean, inj_width = signal_point
-
-    all_fit_results = {itoy: {sp: {} for sp in grid} for itoy in range(n_toys)}
-    for itoy in range(n_toys):
-        x = x_orig.clone("x")
-
-        # Generate toy data with the injected signal on top of the fixed
-        # (already fitted-to-data) background truth model.
-        bkg_model_gen = type(toy_model)(x)
-        bkg_model_gen.set_params(
-            {p.GetName(): p.getVal() for p in toy_model.params()}, constant=True
-        )
-        sig_model_gen = GaussianSignalModel(x, inj_mean, inj_width)
-        gen_model = SignalPlusBackgroundModel(
-            sig_model_gen, bkg_model_gen, max_sig=max(n_sig_inj, 1) + 1, n_bkg=n
-        )
-        gen_model.set_param("n_sig", n_sig_inj, constant=True)
-        gen_model.set_param("n_bkg", n, constant=True)
-        gen_model.set_param("sig_mean", inj_mean, constant=True)
-        gen_model.set_param("sig_sigma", inj_width, constant=True)
-
-        # Extended generation: total yield fluctuates as Poisson(n + n_sig_inj)
-        toy_data = gen_model.pdf.generate(ROOT.RooArgSet(x), ROOT.RooFit.Extended())
-
-        del gen_model, sig_model_gen, bkg_model_gen
-
-        for model_primitive in model_primitives:
-
-            # Fit the background model first to stabilize the background fit
-            bkg_fit_result = fit_random_restarts(
-                x, toy_data, model_primitive, seed,
-                n_restarts=n_restarts, n_retries=n_retries,
-                save=False, fit_options=fit_options,
-                print_level=print_level
-            )
-            if bkg_fit_result is None:
-                if print_level > 0:
-                    print(f"Background fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
-                continue
-
-            # For the background only log-likelihood build a dummy signal+background model with zero signal strength
-            bkg_model = model_primitive(x)
-            bkg_model.set_params(bkg_fit_result["final_pars"])
-            sig_model = GaussianSignalModel(x, grid[0][0], grid[0][1])  # Use the first signal point for initialization
-            model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=0)
-            model.set_param("n_sig", 0, constant=True)  # Set signal strength to zero for background-only fit
-            model.set_param("sig_mean", grid[0][0], constant=True)
-            model.set_param("sig_sigma", grid[0][1], constant=True)
-
-            b_fit_result = fit_n_retries(
-                model, toy_data, n_retries=n_retries,
-                fit_options=sb_fit_options,
-                print_level=print_level
-            )
-            if b_fit_result is None:
-                if print_level > 0:
-                    print(f"Background-only fit failed for toy {itoy}, model {model_primitive.name}. Skipping.")
-                continue
-
-            for sp in grid:
-                sig_mean, sig_width = sp
-
-                # Scale limits on signal strength based on the number of
-                # background events in the signal region.
-                # This improves the fit stability
-                x.setRange("sig_range", sig_mean - sig_width, sig_mean + sig_width)
-                subset = toy_data.reduce(CutRange="sig_range")
-                n_evt_in_sig_region = subset.sumEntries()
-                if n_evt_in_sig_region == 0:
-                    max_sig = 10
-                else:
-                    max_sig = 10*np.sqrt(n_evt_in_sig_region)
-                # Ensure the injected yield itself always lies within bounds.
-                max_sig = max(max_sig, 2 * n_sig_inj + 10)
-
-                # Initialize the signal + background model
-                bkg_model = model_primitive(x)
-                bkg_model.set_params(bkg_fit_result["final_pars"])
-                sig_model = GaussianSignalModel(x, sig_mean, sig_width)
-                model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=max_sig)
-
-                sb_fit_result = fit_n_retries(
-                    model, toy_data, n_retries=n_retries,
-                    fit_options=sb_fit_options,
-                    print_level=print_level
-                )
-
-                if sb_fit_result is None:
-                    if print_level > 0:
-                        print(f"Fit failed for toy {itoy}, signal point {sp}, model {model_primitive.name}. Skipping.")
-                    continue
-
-                # Save relevant info
-                fit_result = {
-                    "b_fit_status": b_fit_result["status"],
-                    "sb_fit_status": sb_fit_result["status"],
-                    "b_nll": b_fit_result["nll"],
-                    "sb_nll": sb_fit_result["nll"],
-                    "n_sig": model.get_param("n_sig").getVal(),
-                    "n_sig_inj": n_sig_inj,
-                    "c": c,
-                }
-
-                all_fit_results[itoy][sp][bkg_model.name] = fit_result
-
-                # --- EXPLICIT CLEANUP (Inner Loop) ---
-                del subset
-                del fit_result
-                del sig_model
-                del bkg_model
-                del model
-
-        # --- EXPLICIT CLEANUP (Outer Loop) ---
-        del toy_data
-        del x
-
-        # Periodically force Python to collect garbage to ensure C++ destructors fire
-        if itoy % 10 == 0:
-            gc.collect()
-
-    # Save result to cache
-    cache_file = get_signal_injection_fits_cache_path(toy_model, signal_point, c, seed, n_toys)
-    with open(cache_file, "wb") as f:
-        pickle.dump(all_fit_results, f)
-
-    return all_fit_results
-
-def load_signal_injection_fit_results(toy_model, signal_point, c, seeds, n_toys_per_seed):
-    results = {}
-    for seed in seeds:
-        cache_file = get_signal_injection_fits_cache_path(toy_model, signal_point, c, seed, n_toys_per_seed)
-        if not os.path.exists(cache_file):
-            print(f"Cache file {cache_file} does not exist. Skipping.")
-            continue
-        with open(cache_file, "rb") as f:
-            result = pickle.load(f)
-        for itoy, sp_results in result.items():
-            uid = f"{seed}_{itoy}"
-            results[uid] = sp_results
+        if not isinstance(result, list):
+            raise ValueError(f"Unexpected spurious-signal cache format in {cache_file}")
+        results.extend(result)
     return results

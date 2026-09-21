@@ -11,3 +11,6 @@ dependencies:
   - ipywidgets
   - ipympl
   - ipykernel
+  - pytest
+  - pyright
+  - ruff

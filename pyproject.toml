@@ -14,3 +14,19 @@ requires-python = ">=3.9"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["emm", "tools"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py39"
+line-length = 100
+extend-exclude = ["cache", "text_round_0", "text_round_1"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.pyright]
+include = ["emm", "tools", "tests"]
+exclude = ["cache", "text_round_0", "text_round_1"]
+reportMissingImports = "none"

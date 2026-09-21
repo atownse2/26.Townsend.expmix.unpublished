@@ -8,7 +8,7 @@ providing a cleaner, narrower interface.
 
 import os
 import random
-from typing import Dict, Optional, List
+from typing import Dict, List, Optional, cast
 
 import pandas as pd
 import numpy as np
@@ -96,7 +96,11 @@ def fit_points(ws_cache, points: List[Dict], profile: bool):
             if profile:
                 par.setConstant(True)
 
-        pdf.fitTo(data, PrintLevel=-1)
+        fit_result = pdf.fitTo(data, Save=True, PrintLevel=-1)
+        if fit_result.status() > 2:
+            raise RuntimeError(
+                f"Profile fit failed at point {point} with status {fit_result.status()}"
+            )
         new_point = point.copy()
         for par_name, par_value in point.items():
             par = ws.var(par_name)
@@ -146,11 +150,11 @@ def scan_parameters(
     if use_condor:
         assert cache_name is not None, "cache_file must be provided when use_condor is True"
     
+    cache_file = None
     if cache_name is not None:
         cache_file = os.path.join(profile_cache, f"{cache_name}.csv")
         
         if os.path.exists(cache_file) and not remake_cache:
-            import pandas as pd
             df = pd.read_csv(cache_file)
             return df
 
@@ -163,7 +167,7 @@ def scan_parameters(
     # Randomize order
     random.shuffle(points)
     # Split into batches
-    point_batches = np.array_split(points, n_batches)
+    point_batches = [points[index::n_batches] for index in range(n_batches)]
 
     tasks = []
     for batch in point_batches:
@@ -175,15 +179,15 @@ def scan_parameters(
         merge_results_fn=concatenate_dfs,
         use_condor=use_condor,
         cache_results=True if use_condor else False,
-        condor_job_name=cache_name,
+        condor_job_name=cache_name or ws_cache_name,
         env_wrapper=so.run_in_mamba,
         clear_logs=True,
     )
 
     # Remove nan
-    df = df.dropna()
+    df = cast(pd.DataFrame, df).dropna()
 
-    if cache_name is not None:
+    if cache_file is not None:
         df.to_csv(cache_file, index=False)
 
     return df

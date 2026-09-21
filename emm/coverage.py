@@ -1,5 +1,6 @@
 import os
 import pickle
+from typing import TypedDict, cast
 
 import ROOT
 import numpy as np
@@ -7,12 +8,18 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .models import evaluate_pdf
-from .fitting import fit_random_restarts
+from .fitting import FitResult, fit_random_restarts
 
 from tools import storage
 from tools import scale_out as so
 
 coverage_cache = storage.ensure_cache("coverage")
+
+
+class CoverageFitResult(FitResult):
+    predictions: np.ndarray
+
+
 def get_coverage_cache_path(toy_model, seed, n_bootstraps, n_events):
     return f"{coverage_cache}/{toy_model.name}_seed{seed}_{n_bootstraps}bootstraps_{n_events}events.pkl"
 
@@ -46,13 +53,16 @@ def run_coverage_fits(
                 seed, n_restarts=10, n_retries=42,
                 save=False,
             )
+            if fit_result is None:
+                continue
 
             # Get predictions at test points
             model = model_primitive(x) # Re-initialize the model to ensure it's in a clean state
             model.set_params(fit_result["final_pars"])
-            fit_result["predictions"] = evaluate_pdf(x, model, test_points)
+            coverage_fit_result = cast(CoverageFitResult, fit_result)
+            coverage_fit_result["predictions"] = evaluate_pdf(x, model, test_points)
 
-            test_val_dict[model.name][i_boot] = fit_result
+            test_val_dict[model.name][i_boot] = coverage_fit_result
 
     # Cache results
     output_file = get_coverage_cache_path(toy_model, seed, n_bootstraps, n_events)
@@ -99,6 +109,7 @@ def load_and_format_coverage_result(toy_model_name, true_vals, cache_file, alpha
     
     if model_selection and n_events is None:
         raise ValueError("n_events must be provided when model_selection is True.")
+    assert n_events is not None
     
     with open(cache_file, "rb") as f:
         result = pickle.load(f)
@@ -211,7 +222,7 @@ def plot_coverages(
         alpha=0.05,
         y_min=0.4,
         models_to_skip=None,
-        range: tuple = None,
+        range: tuple | None = None,
         skip_every: int = 1,
         linewidth=3.5,
         labelsize=16,
@@ -318,5 +329,5 @@ def plot_coverages(
         yticks = yticks[1:-1]
         ax.set_yticks(yticks)
     
-    axs[-1].set_xlabel("$m_{\gamma\gamma}$ [GeV]", fontsize=fontsize)
+    axs[-1].set_xlabel(r"$m_{\gamma\gamma}$ [GeV]", fontsize=fontsize)
     axs[-1].tick_params(axis='x', labelsize=labelsize)

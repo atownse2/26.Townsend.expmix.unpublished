@@ -12,7 +12,7 @@ from .models import (
     evaluate_pdf,
     ModelPrimitive,
     GaussianSignalModel,
-    SignalPlusBackgroundModel,
+    SignalPlusBackgroundModelExtended,
 )
 from .fitting import FitResult, fit_random_restarts, fit_n_retries, train_test_split
 
@@ -31,10 +31,18 @@ def get_signal_injection_cache_path(
         f"c{c}",
         f"seed{seed}",
         f"{n_toys}toys",
-        "shared_toy_signed_fraction_v4",
+        "shared_toy_extended_yield_v5",
     ]
     
     return os.path.join(signal_injection_cache, "_".join(tags) + "_injection_fits.pkl")
+
+
+def signal_yield_bounds(n_events_in_signal_region, n_inj, n_bkg):
+    """Return stable signed signal-yield bounds for an extended fit."""
+    fluctuation_scale = 10 * np.sqrt(max(n_events_in_signal_region, 1))
+    min_sig = max(-fluctuation_scale, -0.5 * n_bkg + 1e-6)
+    max_sig = fluctuation_scale if n_inj == 0 else n_inj + fluctuation_scale
+    return min_sig, max_sig
 
 
 def run_signal_injection_fits(
@@ -48,7 +56,7 @@ def run_signal_injection_fits(
         n,
         signal_point,
         n_restarts, n_retries,
-        fit_options: list = [],
+        fit_options: list | None = None,
         print_level: int = 0,
         save_as="default"
         ) -> list[dict]:
@@ -58,14 +66,15 @@ def run_signal_injection_fits(
     # Set seed
     ROOT.RooRandom.randomGenerator().SetSeed(int(seed))
 
-    # s+b fits require additional fit options to ensure stability and robustness.
-    sb_fit_options = fit_options.copy()
+    # Signed signal yields require an extended model with a positive background yield.
+    sb_fit_options = list(fit_options) if fit_options is not None else []
 
     # Added robustness because we allow for negative signal strengths in the fit,
     # which can lead to undefined regions in the likelihood.
-    if ROOT.RooFit.RecoverFromUndefinedRegions(1.0) not in fit_options:
+    if not any(option.GetName() == "RecoverFromUndefinedRegions" for option in sb_fit_options):
         sb_fit_options.append(ROOT.RooFit.RecoverFromUndefinedRegions(1.0))
-    sb_fit_options.append(ROOT.RooFit.Extended(False))
+    if not any(option.GetName() == "Extended" for option in sb_fit_options):
+        sb_fit_options.append(ROOT.RooFit.Extended(True))
 
     sig_mean, sig_width = signal_point
 
@@ -75,7 +84,9 @@ def run_signal_injection_fits(
 
         # Fit every candidate background model to the same injected toy.
         toy_sig_model = GaussianSignalModel(x, sig_mean, sig_width)
-        toy_model = SignalPlusBackgroundModel(toy_sig_model, toy_bkg_model, max_sig=n_inj)
+        toy_model = SignalPlusBackgroundModelExtended(
+            toy_sig_model, toy_bkg_model, max_sig=abs(n_inj), n_obs=n
+        )
         toy_model.set_param("n_sig", n_inj, constant=True)
         toy_data = toy_model.pdf.generate(ROOT.RooArgSet(x), n)
 
@@ -96,7 +107,9 @@ def run_signal_injection_fits(
             bkg_model = model_primitive(x)
             bkg_model.set_params(bkg_fit_result["final_pars"])
             sig_model = GaussianSignalModel(x, sig_mean, sig_width)
-            bkg_only_model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=2*n_inj)
+            bkg_only_model = SignalPlusBackgroundModelExtended(
+                sig_model, bkg_model, max_sig=2 * abs(n_inj), n_obs=n
+            )
             bkg_only_model.set_param("n_sig", 0, constant=True)  # Set signal strength to zero for bkg-only fit
             bkg_only_fit_result = fit_n_retries(
                 bkg_only_model, toy_data, n_retries=n_retries,
@@ -113,7 +126,9 @@ def run_signal_injection_fits(
             bkg_model = model_primitive(x)
             bkg_model.set_params(bkg_fit_result["final_pars"])
             sig_model = GaussianSignalModel(x, sig_mean, sig_width)
-            null_model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=2*n_inj)
+            null_model = SignalPlusBackgroundModelExtended(
+                sig_model, bkg_model, max_sig=2 * abs(n_inj), n_obs=n
+            )
             null_model.set_param("n_sig", n_inj, constant=True)  # Set signal strength to injected value for null fit
 
             null_fit_result = fit_n_retries(
@@ -134,17 +149,21 @@ def run_signal_injection_fits(
             x.setRange("sig_range", sig_mean - sig_width, sig_mean + sig_width)
             subset = toy_data.reduce(CutRange="sig_range")
             n_evt_in_sig_region = subset.sumEntries()
-            if n_evt_in_sig_region == 0:
-                max_sig = 10
-            else:
-                max_sig = 10*np.sqrt(n_evt_in_sig_region)
-            max_sig = max(max_sig, 2*n_inj)  
+            min_sig, max_sig = signal_yield_bounds(
+                n_evt_in_sig_region, n_inj, n
+            )
 
             # Initialize the signal + background model
             bkg_model = model_primitive(x)
             bkg_model.set_params(bkg_fit_result["final_pars"])
             sig_model = GaussianSignalModel(x, sig_mean, sig_width)
-            alt_model = SignalPlusBackgroundModel(sig_model, bkg_model, max_sig=max_sig)
+            alt_model = SignalPlusBackgroundModelExtended(
+                sig_model,
+                bkg_model,
+                min_sig=min_sig,
+                max_sig=max_sig,
+                n_obs=n,
+            )
             alt_model.set_param("n_sig", n_inj, constant=False)  # Float the signal strength for the alternative fit
 
             alt_fit_result = fit_n_retries(

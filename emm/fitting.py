@@ -1,7 +1,7 @@
 import time
 import random
 import pickle
-from typing import Any, Dict, List, Literal, Optional, TypedDict, Union, overload
+from typing import Any, Dict, List, Mapping, Optional, Sequence, TypedDict, Union
 
 import numpy as np
 
@@ -14,8 +14,8 @@ from tools import scale_out as so
 random_string = lambda: ''.join(random.choices('abcdefghijklmnopqrstuvwxyz', k=10))
 
 default_fit_options = [
+    ROOT.RooFit.PrintLevel(-1),
     # ROOT.RooFit.IntegrateBins(0.0001),
-    # ROOT.RooFit.PrintLevel(-1),
     # ROOT.RooFit.Offset(True),
     # # ROOT.RooFit.Strategy(2),
     # ROOT.RooFit.Save(),
@@ -31,14 +31,17 @@ class FitResult(TypedDict):
     n_retries: int
 
 
-def fit(model, data, fit_args=[], print_level=0):
+def fit(model, data, fit_args=None, print_level=0):
     t1 = time.time()
     if print_level > 0:
         print(f"Fitting model {model.name} to data {data.GetName()} with {len(data)} entries")
 
+    fit_args = list(fit_args) if fit_args is not None else []
+    if not any(option.GetName() == "Save" for option in fit_args):
+        fit_args.append(ROOT.RooFit.Save(True))
+
     fit_result = model.pdf.fitTo(
         data,
-        ROOT.RooFit.Save(True),
         *fit_args
     )
 
@@ -51,19 +54,20 @@ def fit(model, data, fit_args=[], print_level=0):
     return fit_result
 
 def fit_n_retries(
-        model, data, n_retries,
-        fit_options=default_fit_options,
-        print_level=0,
-        return_failures=False
+    model, data, n_retries,
+    fit_options=None,
+    print_level=0,
     ) -> Optional[FitResult]:
     """
     Fit a model to data, retrying up to n_retries times if the fit fails
     (fit status > 2). Returns the fit result if successful, or None if all attempts fail.
     """
     import ROOT
-    # Copy so we don't mutate the caller's list. RooCmdArg has no value
-    fit_options = list(fit_options)
-    if ROOT.RooFit.Save(True) not in fit_options:
+    # Copy so we don't mutate the caller's list.
+    fit_options = list(default_fit_options if fit_options is None else fit_options)
+
+    # Add Save(True) to the fit options if not already present, so we can access the fit result.
+    if not any(option.GetName() == "Save" for option in fit_options):
         fit_options.append(ROOT.RooFit.Save(True))
 
     initial_pars = {p.GetName(): p.getVal() for p in model.params()}
@@ -71,16 +75,23 @@ def fit_n_retries(
     for i_retry in range(n_retries):
         fit_result = model.pdf.fitTo(
             data,
-            *fit_options
+            *fit_options,
         )
-        if (fit_result.status() <= 2) or (i_retry == n_retries - 1 and return_failures):
+        try:
+            fit_status = fit_result.status()
+        except ReferenceError:
+            if print_level > 2:
+                print(f"Fit attempt {i_retry + 1} returned no result.")
+            continue
+
+        if (fit_status <= 2):
             if i_retry > 0 and print_level > 2:
                 print(f"Fit succeeded after {i_retry} retries")
 
             final_pars = {p.GetName(): p.getVal() for p in model.params()}
 
             result: FitResult = {
-                "status": fit_result.status(),
+                "status": fit_status,
                 "nll": fit_result.minNll(),
                 "initial_pars": initial_pars,
                 "final_pars": final_pars,
@@ -105,13 +116,14 @@ def random_restarts_filename(
     return f
 
 def fit_random_restart(
-        x, data,
-        model_primitive,
-        i_seed,
-        n_retries=5,
-        fit_options=default_fit_options,
-        print_level=0,
+    x, data,
+    model_primitive,
+    i_seed,
+    n_retries=5,
+    fit_options=None,
+    print_level=0,
 ) -> Optional[FitResult]:
+
     rng = np.random.default_rng(seed=i_seed)
 
     model = model_primitive(x)
@@ -120,7 +132,7 @@ def fit_random_restart(
     fit_result = fit_n_retries(
         model, data, n_retries,
         fit_options=fit_options,
-        print_level=print_level
+        print_level=print_level,
     )
 
     if fit_result is None:
@@ -134,49 +146,27 @@ def fit_random_restart(
     return fit_result
 
 
-@overload
-def fit_random_restarts(
-        x: Any, data: Any, model_primitive: Any,
-        seed: int, n_restarts: int,
-        n_retries: int = 5,
-        save: bool = True,
-        fit_options: Any = default_fit_options,
-        print_level: int = 0,
-        return_all_results: Literal[False] = False,
-        use_multiprocessing: bool = False,
-    ) -> Optional[FitResult]: ...
-
-
-@overload
-def fit_random_restarts(
-        x: Any, data: Any, model_primitive: Any,
-        seed: int, n_restarts: int,
-        n_retries: int = 5,
-        save: bool = True,
-        fit_options: Any = default_fit_options,
-        print_level: int = 0,
-        return_all_results: bool = False,
-        use_multiprocessing: bool = False,
-    ) -> Union[Optional[FitResult], List[FitResult]]: ...
-
-
 def fit_random_restarts(
         x, data,
         model_primitive,
         seed, n_restarts,
         n_retries=5,
-        save=True,
-        fit_options=default_fit_options,
+        save=False,
+        save_as=None,
+        fit_options=None,
         print_level=0,
         return_all_results=False,
         use_multiprocessing=False,
     ) -> Union[Optional[FitResult], List[FitResult]]:
 
+    rng = np.random.default_rng(seed=seed)
+    restart_seeds = rng.integers(0, 2**32 - 1, size=n_restarts)
+
     tasks = []
     for i in range(n_restarts):
         task = so.Task(
             fit_random_restart,
-            x, data, model_primitive, seed+i,
+            x, data, model_primitive, restart_seeds[i],
             n_retries=n_retries,
             print_level=print_level,
             fit_options=fit_options,
@@ -191,12 +181,13 @@ def fit_random_restarts(
     fit_results = [r for r in fit_results if r is not None]
 
     if len(fit_results) == 0:
-        print("No successful fits were found.")
-        return None if not return_all_results else []
+        if print_level > 0:
+            print(f"All {n_restarts} random restarts failed for model {model_primitive.name}.")
+        return [] if return_all_results else None
     
-    if save:
+    if save or save_as is not None:
         model = model_primitive(x)
-        fout = random_restarts_filename(model.name, data.GetName(), n_restarts, seed)
+        fout = save_as if save_as is not None else random_restarts_filename(model.name, data.GetName(), n_restarts, seed)
         with open(fout, "wb") as f:
             pickle.dump(fit_results, f)
 
@@ -220,8 +211,8 @@ def fit_random_restarts_until_converged(
         nll_threshold=0.01,
         max_restarts=100,
         n_retries=5,
-        save=True,
-        fit_options=default_fit_options,
+        save=False,
+        fit_options=None,
         print_level=0,
     ) -> Optional[FitResult]:
     """Fit random restarts until enough results lie near the current minimum NLL.
@@ -293,6 +284,34 @@ def compute_information_criteria(nll, n_params, n_observations):
         "AIC": 2 * n_params + 2 * nll,
         "BIC": n_params * np.log(n_observations) + 2 * nll,
     }
+
+
+def format_paper_comparison_table(fit_results: Sequence[Mapping[str, Any]]) -> str:
+    """Format fit summaries as the LaTeX comparison table used in the paper.
+
+    Each result must provide ``label``, ``chi2``, ``ndf``, ``chi2_ndf``, ``aic``,
+    and ``bic``. The formatter does not inspect model types, so it supports
+    exponential mixtures and arbitrary analytic comparison functions alike.
+    """
+    if not fit_results:
+        raise ValueError("fit_results must contain at least one result")
+
+    aic_min = min(float(result["aic"]) for result in fit_results)
+    bic_min = min(float(result["bic"]) for result in fit_results)
+    lines = [
+        r"\begin{tabular}{lccccc}",
+        r"Model & $\chi^2$ & NDF & $\chi^2_\nu$ & $\Delta$AIC & $\Delta$BIC \\",
+        r"\hline",
+    ]
+    for result in fit_results:
+        lines.append(
+            f"{result['label']} & {float(result['chi2']):.1f} & {int(result['ndf'])} & "
+            f"{float(result['chi2_ndf']):.2f} & "
+            f"{float(result['aic']) - aic_min:.1f} & "
+            f"{float(result['bic']) - bic_min:.1f} \\\\"
+        )
+    lines.append(r"\end{tabular}")
+    return "\n".join(lines)
 
 def rebin_for_low_stats(hist, min_events=30):
     """
