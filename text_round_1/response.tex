@@ -3,7 +3,10 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb}
 \usepackage{xcolor}
-\usepackage{hyperref}
+\usepackage{xr-hyper}
+\externaldocument{main} % reads main.aux; omit the .tex extension
+\usepackage{hyperref}   % only if not already loaded
+% \usepackage{hyperref}
 
 % Custom styling for comments and changes
 \definecolor{refcolor}{RGB}{0, 51, 102}
@@ -32,15 +35,33 @@
 \noindent Dear Editor and Referees,
 
 \medskip
-We thank both referees for their careful reading and constructive suggestions. Their comments have helped us clarify the statistical motivation for exponential mixtures, explain the practical limitations of the fitting procedure, and better distinguish the conclusions supported by our studies from questions requiring further investigation.
+We thank both referees for their careful reading and constructive suggestions. Their comments have helped us clarify the statistical motivation for exponential mixtures and better distinguish the conclusions supported by our studies from questions requiring further investigation.
 
-Below, we respond to each comment and quote the principal changes to the manuscript. Where we have not undertaken a suggested additional study, we explain our reasoning and acknowledge the remaining limitations.
+Below, we include a summary of changes and then respond to each comment. Where we have not undertaken a suggested additional study, we explain our reasoning.
 
+\section*{Summary of Changes}
+
+We have substantially revised the presentation of the model’s statistical motivation, clarified the fitting and simulation procedures, and expanded the discussion of limitations. The principal changes are summarized below, with detailed explanations provided in the point-by-point responses.
+
+1. Abstract and introduction: We now define the finite exponential mixture explicitly as a weighted sum of exponential densities with non-negative weights and identify the quoted dataset sizes as observation counts. The introduction acknowledges previous use of exponential sums in background modeling and distinguishes the statistical motivation for the proposed construction from its empirical validation.
+
+2. GPD motivation and mixture construction (Section 2): We have rewritten the development of the model to proceed directly from the positive-shape generalized Pareto distribution (GPD), through its exact representation as an exponential mixture with gamma-distributed rates, to a general mixing distribution and its finite approximation. We have added the exponential case to the GPD definition and clarified the allowed mass ranges, log-convexity and log-concavity, and the distinction between the limiting behavior described by extreme value theory and the behavior over a finite analysis interval.
+
+3. Complete monotonicity and approximation properties (Section 2): We have made the approximation statement precise by specifying restriction and normalization over a common finite analysis interval. We have replaced the discussion of the Normal-distribution tail with examples of completely monotone functions, including power laws, shifted power laws, and stretched exponentials, and explained how closure under addition and multiplication broadens the range of shapes represented by the mixture family.
+
+4. Optimization and model selection (Section 3): We now specify the accepted minimizer statuses, the selection of the lowest negative log-likelihood among accepted fits, and the distinction between fits to independent pseudo-datasets and fits to bootstrap resamples. The dataset-specific restart and fit-call budgets are stated explicitly and identified as heuristic choices that do not certify global optimality. We also express AIC and BIC as likelihood-improvement thresholds and explain why they are used as practical selection rules in this setting, where standard regularity assumptions may fail.
+
+5. Likelihood definitions and fit comparisons (Section 3; Tables 1–2): The fit-comparison tables have been updated to include the degrees of freedom and selected mixture orders. Figures 2 and 4 now use linear mass axes with logarithmic vertical axes, and Figures 1 and 3 have been replaced with vector versions. We have revised captions and equation references, grouped the four diphoton reference functions under Eq. (3.4), and corrected typographical and terminology inconsistencies. 
+
+6. Bias and coverage (Section 4): The coverage discussion now explains weak identifiability through nearly coincident rates and negligible component weights. We describe the bootstrap resampling, initialization, repeated model selection, and percentile-interval construction explicitly, and distinguish these steps from the evaluation of coverage across independent pseudo-datasets. We also quantify the statistical precision of the coverage estimates and acknowledge correlations across mass values and undercoverage in the tail.
+
+7. Spurious-signal assessment (Section 4; Figure 7): We have replaced the Hessian-standardized signal yield with the signed profile-likelihood statistic \(r_0=\operatorname{sign}(\hat{\mu})\sqrt{-2\ln\lambda(0)}\), explaining its relation to the usual standardized estimator under the Wald approximation. The signal-plus-background model is now written in terms of a signal fraction, with fixed signal mean and width and negative fractions permitted subject to non-negativity of the total density. We specify that the background-only selected mixture order is held fixed during profiling, and have updated Figure 7 and its caption to identify the statistic and the central intervals across pseudo-datasets.
+
+8. Discussion and conclusions (Sections 5–6): We have substantially reorganized the discussion to distinguish the evidence supporting density estimation from the additional validation required for resonance searches. The revised text explicitly addresses possible signal absorption, the need to assess power alongside false-positive rates, and the limited sample-size range of the simulation studies. Signal-injection, sensitivity, and additional sample-size studies remain outside the present revision and are identified as outstanding work. We have also expanded the discussion of optimization, adaptive stopping criteria, ordered-rate parameterizations, regularization, and endpoint modeling, and qualified statements about protection against overfitting.
 
 \bigskip
 \hrule
 \bigskip
-
 
 \section*{Response to Referee 1}
 
@@ -56,13 +77,14 @@ numbers of a dataset, not the size.}
 
 \refcomment{Section 2 starts with pure motivations, but quickly reverts into an ad-hoc
 model. But having explained the benefits of the GPD in including models with upper cut-offs, these are not supported.}
-\response The bounded GPD is a statement about the possible shapes arbitrarily close to the upper threshold. In the HEP examples we do not have data near this threshold so we are not in this asymptotic regime. On the other hand, the unbounded asymptotic shapes (power laws) describe the spectra we see fairly well. The paragraph discussing this has been amended:
-\addedtext{In collider applications, the physical upper bound at the center-of-mass energy motivates a negative-shape GPD as a possible description sufficiently close to the endpoint. The region in which this approximation is appropriate may, however, be confined to a narrow interval near the kinematic limit, where the vanishing spectrum makes events increasingly rare and may reduce the importance of this endpoint description for background modeling in finite datasets. Over the mass intervals considered by most analyses, the spectra are instead predominantly log-convex, favoring the positive-shape GPD as an alternative reference shape whose power-law behavior is compatible with established parameterizations of non-resonant backgrounds. This compatibility motivates the positive-shape GPD as a starting point, although its specific functional form may be too restrictive to capture variations across the full analysis range. Its representation as an exponential mixture with gamma-distributed rates then suggests a systematic generalization: relaxing the gamma restriction allows for more flexibility.}
+\response We agree that the distinction between endpoint behavior and the shape over a finite analysis range requires clarification. The proposed mixture does not describe the vanishing spectrum at a finite kinematic endpoint. Instead, we use the positive-shape GPD as a reference family whose power-law behavior is compatible with spectra over the intervals considered here, and generalize its distribution of exponential rates. We have revised Section 2 to clarify this motivation and discuss the separate treatment of endpoint effects in Section 5. See added text:
+
+\addedtext{In collider applications, the physical upper bound at the center-of-mass energy motivates a negative-shape GPD as a possible description sufficiently close to the endpoint. The range over which endpoint effects become important depends on the spectrum: they may be confined to a narrow interval near the kinematic limit or extend to substantially lower masses. Close to the endpoint, the vanishing spectrum also makes observations increasingly rare. The practical importance of modeling these effects therefore depends on both their extent across the fitted range and the available event count. Over the mass intervals considered by the analyses presented here, the spectra are instead predominantly log-convex, favoring the positive-shape GPD as an alternative reference shape whose power-law behavior is compatible with established parameterizations of non-resonant backgrounds. This compatibility motivates the positive-shape GPD as a starting point, although its specific functional form may be too restrictive to capture variations across the full analysis range. Its representation as an exponential mixture with gamma-distributed rates then suggests a systematic generalization: relaxing the gamma restriction allows for more flexibility.}
 
 \refcomment{Eqn 2.4 is rather straightforward and its not clear what is gained by passing
 through the continuous eqn 2.2}
 \response The purpose is to show that in going from the continuous to the finite case we are making a particular approximation. We can make this more clear by moving from the exponential-gamma representation of the positive shape GPD to the finite exponential mixture. This section has been amended to include the following text:
-\addedtext{For $\xi>0$, the GPD has the exponential-mixture representation
+\addedtext{For the following mixture representations, we measure $x$ relative to the lower threshold, so that $x$ denotes the excess above $u$ and the threshold is located at zero. For $\xi>0$, the GPD has the exponential-mixture representation
 $$
 f_{\text{GPD}}(x\mid\sigma,\xi>0)
 =\int_0^\infty \beta e^{-\beta x}
@@ -73,9 +95,9 @@ $$
 \pi_\Gamma(\beta\mid a,b)
 =\frac{b^a}{\Gamma(a)}\beta^{a-1}e^{-b\beta},
 \qquad
-a=\frac{1}{\xi},\qquad b=\frac{\sigma}{\xi}.
+a=\frac{1}{\xi},\qquad b=\frac{\sigma}{\xi},
 $$
-Here $b$ is the rate parameter of the gamma distribution. Thus the positive-shape GPD is an exponential mixture with a particular distribution of decay rates. The exponential case $\xi=0$ corresponds to a rate distribution concentrated at $\beta=1/\sigma$.
+where $a$ and $b$ are the shape and rate parameters of the Gamma distribution. The exponential case $\xi=0$ corresponds to a rate distribution concentrated at $\beta=1/\sigma$.
 
 This identity motivates replacing the gamma distribution by a general probability distribution $G$ over positive rates:
 $$
@@ -87,20 +109,25 @@ f_k(x)=\sum_{i=1}^{k}w_i\beta_i e^{-\beta_i x},
 \qquad
 w_i\geq0,\quad \sum_{i=1}^{k}w_i=1,\quad \beta_i>0.
 $$
-The set of rates $\beta_i$ and the corresponding weights $w_i$ provide a finite approximation of the continuous mixing density $G$ and likely lack any physical interpretation alone.}
+The set of rates $\beta_i$ and the corresponding weights $w_i$ provide a finite approximation of the mixing distribution $G$ and likely lack any physical interpretation alone.}
 
 \refcomment{"In some regimes the Normal distribution tail converges to the GPD" I am
 not clear what we learn from this - you moved away from the GPD, right?}
-\response The exponential mixture is effectively a superset of the unbounded GPD. This statement is used to give the reader an idea of the generality of EVT. This is somewhat vague though and potentially misleading, the Normal distribution converges to an exponential and the rate of this convergence is famously slow. This and the preceding sentences discussing the Normal distribution have been removed and the paragraph has been amended to contain examples of completely monotone functions instead of counter-examples. Here is the amended paragraph:
-\addedtext{The class of exponential mixtures can approximate any completely monotone function arbitrarily closely \cite{bernstein} and any completely monotone function can be uniformly approximated by a finite exponential sum on a compact interval in $x>0$ \cite{McGlinn_1978}. Familiar examples of completely monotone functions include decreasing exponentials $e^{-\beta x}$, power laws $x^{-\alpha}$, shifted power laws $(1+x/\sigma)^{-\alpha}$, and stretched exponentials $e^{-(x/\sigma)^q}$, for $\alpha,\beta,\sigma>0$ and $0<q\leq1$, on $x>0$. The class of completely monotone functions is closed under addition and multiplication, so positive sums of these functions and products such as exponentially damped power laws also belong to the class. Exponential mixtures therefore provide a common representation for several familiar falling shapes without requiring a particular combination of factors to be specified in advance.}
+\response We have not moved away from the GPD, the exponential mixture is a generalization of the unbounded GPD. This statement is used to give the reader an idea of the generality of EVT. This is somewhat vague though and potentially misleading, the Normal distribution converges to an exponential and the rate of this convergence is famously slow. This and the preceding sentences discussing the Normal distribution have been removed and the paragraph has been amended to contain examples of completely monotone functions instead of counter-examples. Here is the amended paragraph:
+
+\addedtext{Any completely monotone function on $(0,\infty)$ admits a representation as a positive mixture of exponential functions \cite{bernstein} and can be uniformly approximated by finite positive exponential sums on compact intervals contained in $(0,\infty)$ \cite{McGlinn_1978}. Thus, after restricting and normalizing both the target function and the mixture over the same finite analysis interval, finite exponential mixtures can approximate arbitrarily closely any density obtained from a completely monotone function. Familiar examples of completely monotone functions include decreasing exponentials $e^{-\beta x}$, power laws $x^{-\alpha}$, shifted power laws $(1+x/\sigma)^{-\alpha}$, and stretched exponentials $e^{-(x/\sigma)^q}$, for $\alpha,\beta,\sigma>0$ and $0<q\leq1$, on $x>0$. The class of completely monotone functions is closed under addition and multiplication, so positive sums of these functions and products such as exponentially damped power laws also belong to the class. Exponential mixtures therefore provide a common representation for several familiar falling shapes without requiring a particular combination of factors to be specified in advance.}
 
 \refcomment{At the top of p5 you make it clear that the convergence is not straight-
 forward ’multiple random restarts’. This sounds slow and cumbersome. You need a procedure to define success...what is it?}
 \response We agree that the details here are insufficient. We have modified the text to be more clear:
-\addedtext{Because the likelihood is non-convex in the mixture parameters, each model is fitted from multiple randomized starting points. At each starting point, minimization is repeated until the \texttt{RooFit} return status is at most 2 or a prescribed limit on the number of fit calls is reached. Among the accepted results, the parameter values yielding the lowest negative log-likelihood are retained. This operational acceptance criterion does not certify global optimality. The restart and fit-call budgets are specified separately for each example and should be regarded as heuristic implementation choices; their selection is not determined by an adaptive stopping rule in this study.}
+\addedtext{Numerical optimization is performed with \texttt{MINUIT} and the \texttt{MIGRAD} algorithm~\cite{Minuit2}. Because the likelihood is non-convex in the mixture parameters, each model is fitted from multiple randomized starting points. At each starting point, minimization is repeated until the returned status is 0 (successful minimization), 1 (the covariance matrix was forced positive definite), or 2 (the Hessian calculation was invalid), or until a prescribed limit on the number of fit calls is reached. Among the accepted results, the parameter values yielding the lowest negative log-likelihood are retained.
+}
 
 \refcomment{You introduce AIC/BIC. It is very common in the field to use Wilkes tests, or the derivative 2*delta(ll) < X when testing different numbers of parameters. Did you have a good reason to use a different approach?}
-\response Model selection is an open problem with many proposed methods and while AIC/BIC are fairly standard in the statistical literature better solutions likely exist. We have avoided the likelihood ratio test (LRT) (Wilkes test) due to violations of it assumptions, namely that the nested model be on the interior of the parameter space of the larger model. This may not break the approach in general but we would need to verify this. Metrics based on the shape of the delta(ll) curve sound reasonable but need to be studied, although I worry that threshold choices may depend on the size of the dataset.
+\response AIC and BIC offer practical ways to balance improvement in the fit against additional parameters. They are similar to the likelihood-improvement threshold suggested by the referee: AIC accepts the larger model when $2\Delta\ell>2\Delta p$, while BIC requires $2\Delta\ell>\Delta p\log n$, where $\Delta p$ is the number of additional parameters and $n$ is the event count. Adding one exponential component introduces two free parameters, giving thresholds of $4$ and $2\log n$, respectively.
+
+For finite mixtures, violations of the regularity conditions cast doubt on the usual asymptotic formulae used to interpret likelihood-ratio tests. Such tests may nevertheless provide useful selection rules, but their performance in this setting requires further study. Bootstrap calibration is an alternative, although repeating it for every model-selection decision is computationally prohibitive for our studies. We also acknowledge that the assumptions underlying the usual theoretical justification of AIC and BIC may be violated. We therefore use these criteria as practical choices and evaluate their performance through the simulation studies, rather than relying solely on their asymptotic justification.
+
 
 \refcomment{on p6 you write 80 restarts and 100 retries ’since the dataset is large’. This does not seem like an automated procedure.}
 \response We agree that the choices of restart and retry budgets are heuristic and that an automated stopping criteria would be a nice improvement. The revised discussion identifies the development and validation of adaptive stopping criteria and more efficient optimization strategies as future work. Here is the modified discussion:
@@ -110,7 +137,7 @@ forward ’multiple random restarts’. This sounds slow and cumbersome. You nee
 the Exponential mixture? Its not clear why you quote the chi2 here at
 all - the ll does not need this arbitrary rebinning to have 30 events and is
 just as informative for comparing values. Indeed for the diphoton dataset the visually obvious deviations are above 2000 and are perhaps lost in the rebinning.}
-\response The chi2 is commonly used in HEP can say something about both over- and under-fitting; it may be hard to see overfitting using the log-likelihood alone. The Ndf has been added to the table and the order of the finite exponential mixture is now given in the caption.
+\response The chi2 is commonly used in HEP and we include it as a familiar diagnostic. We agree that merging low-count bins reduces resolution in the tail and that the resulting statistic should not replace inspection of the residuals. We have added the degrees of freedom and selected mixture order to the tables and captions.
 
 \refcomment{page 10 "Since fits to exponential mixtures of varying complexity may
 have weakly identified parameters," What do you mean? Anticorrelated
@@ -121,26 +148,32 @@ does but measures not true density but fluctuations of the observed data,
 which is not quite the same thing - if your dataset is ’up’ in one place the
 sampling will vary around that ’up’. But there is no foolproof solution here.}
 
-\response Apologies, the text is overly brief here. Normally the uncertainty in the density is propagated from the covariance matrix using the quadratic approximation. In our case, issues of parameter identifiability (i.e. parameters get too close together and can share weight) and weakly identified parameters (i.e. small weights can cause the corresponding rates to be poorly constrained) can cause the likelihood can be locally flat casting doubt on the validity of the quadratic approximation of the parameter uncertainties and the propagated uncertainty in the density. We use bootstrap as a workaround. The text has been updated to be more clear:
-\addedtext{Coverage is evaluated by calculating how often the true density falls within the estimated pointwise confidence intervals across independently generated pseudo-datasets. In finite exponential mixtures, individual component parameters can be poorly constrained even when the combined density is comparatively well constrained. For example, components with nearly equal rates can exchange weight with little change in the density, while the rate of a component with negligible weight is weakly constrained by the data. These configurations can produce nearly flat likelihood directions, making a local quadratic approximation to the likelihood unreliable.
+\response We have expanded the explanation of weak identifiability: components with nearly equal rates can exchange weight with little change in the fitted density, while the rate of a component with negligible weight can be poorly constrained. These configurations can make covariance-based uncertainty propagation unreliable, motivating our use of bootstrap intervals.
 
-Estimating uncertainty in the density requires accounting for the joint dependence among parameters and their nonlinear mapping to the density. When the quadratic approximation is adequate, the estimated parameter covariance matrix can be used for approximate uncertainty propagation. To avoid relying on this approximation, we instead use the non-parametric bootstrap \cite{Efron_1986}, constructing pointwise confidence intervals directly from an ensemble of densities fitted to resampled datasets.}
+We agree that bootstrap resampling reflects fluctuations around the observed dataset and does not automatically correct an upward fluctuation or background-modeling bias. In our study, however, resampling is used only to construct the confidence interval for each pseudo-dataset. Coverage is then evaluated across independently generated pseudo-datasets by checking whether those intervals contain the known data-generating density. This outer simulation directly assesses the performance of the bootstrap interval procedure, including any undercoverage arising from the concern raised by the referee. We have clarified this distinction in the manuscript.
+
+\addedtext{Coverage is evaluated by calculating how often the true density falls within the estimated pointwise confidence intervals across independently generated pseudo-datasets. Constructing these intervals requires accounting for the joint dependence among fitted parameters and their nonlinear mapping to the density. When a local quadratic approximation to the likelihood is adequate, the estimated parameter covariance matrix can be used for approximate uncertainty propagation. In finite exponential mixtures, however, individual component parameters can be poorly constrained even when the combined density is comparatively well constrained. Components with nearly equal rates can exchange weight with little change in the density, while the rate of a component with negligible weight is weakly constrained by the data. These configurations can produce nearly flat likelihood directions, making the quadratic approximation unreliable. We therefore use the non-parametric bootstrap \cite{Efron_1986} to construct pointwise confidence intervals directly from an ensemble of fitted densities.
+
+For each independently generated pseudo-dataset $D$, we draw $B$ bootstrap resamples of the same size by sampling its observations with replacement. Each candidate mixture order is refitted to every resample, starting from the parameter estimates obtained for that order by the random-restart procedure applied to $D$. The random-restart search is not repeated within each resample. The number of components $k$ is selected again using the same information criterion, so the ensemble includes variation associated with both parameter estimation and model selection. At each mass value $x$, the pointwise confidence interval is defined by the $100\alpha/2$ and $100(1-\alpha/2)$ percentiles of the fitted bootstrap densities. We use $\alpha=0.05$, corresponding to the 2.5th and 97.5th percentiles.
+
+These intervals reflect variability estimated from each pseudo-dataset, but resampling does not automatically correct bias from background misspecification or model selection. Their nominal 95\% confidence level therefore does not guarantee 95\% coverage. To assess their actual coverage, we repeat the full interval-construction procedure across independently generated pseudo-datasets and record how often the resulting intervals contain the known true density.}
 
 \refcomment{Metrics: you discuss coverage, spurious signal and Bias, all of which are
 interesting, but you do not compare the power of the different approaches,
 which is an unfortunate omission. AIC and BIC for example will surely differ
 in power.}
-\response Indeed, a more flexible model should have a reduced sensitivity. In this case I don't think it is clear whether or not the loss in sensitivity is justified, the less complex model may be overly sensitive because it is biased. The background model is sufficiently rigid that there is little issue for resolved peaks, but for small signals in the tails or near the lower threshold, if the available data cannot distinguish a localized signal contribution from an admissible variation in the background, increased uncertainty in the signal yield seems appropriate.
+
+\response We agree that power studies would strengthen the assessment, particularly by quantifying the potential loss of sensitivity associated with additional background flexibility. Completing and validating this comparison would require additional work beyond what we can reliably incorporate within the present revision period. We have therefore retained the scope of the current simulation studies and revised the discussion to state explicitly that the background-only results do not establish the preferred model complexity for a resonance search.
 
 \refcomment{The Discussion is misleading. You had to abandon the basis functions drawn from EVT, so you should not now appeal to it to support your proposal.}
-\response We have not abandoned the GPD, the exponential mixture is a generalization of the unbounded GPD. The bounded GPD is not relevant in the examples shown because we are sufficiently far from the upper threshold. Since we are not in the asymptotic bounded regime the unbounded shapes become relevant.
+\response The positive-shape GPD remains part of our motivation: its exact representation as an exponential mixture with gamma-distributed rates provides the starting point for the proposed generalization. However, we agree that EVT does not establish that an arbitrary collider spectrum is an exponential mixture over a finite analysis range. We have revised the manuscript to distinguish this statistical motivation from the empirical assessment of the model. In particular, being far from the kinematic endpoint does not by itself justify an unbounded GPD approximation; its relevance here comes from its compatibility with the ATLAS and CMS spectra.
 
 \refcomment{The rest of the discussion i applaud, bar the lack of discussion of sensitivity
 - the price paid for multiple parameters. Without that there is really no
 reason not to go to N → infinity. Without this you miss an important test.}
 \response We agree, this should be in the discussion. The following text has been added:
 \addedtext{
-Additional background flexibility can reduce apparent sensitivity to a resonant signal, but this tradeoff should be interpreted in light of the constraints on the background model and the fact that the finite mixture order is a practical choice rather than a physical assumption. Exponential mixtures remain completely monotone as components are added, restricting their ability to reproduce localized resonant structure and reducing the scope for overfitting. These constraints do not eliminate partial signal absorption: when a localized deviation is small enough to be compatible with an admissible variation in the background, increased uncertainty in the extracted signal yield appropriately reflects the limited information available to distinguish these explanations. For sufficiently constrained models additional complexity may be desirable even if it reduces the apparent sensitivity
+Additional background flexibility can reduce sensitivity to a resonant signal, although this tradeoff should be assessed alongside robustness to background misspecification. Exponential mixtures remain completely monotone as components are added, restricting their ability to reproduce localized resonant structure. These constraints do not eliminate partial signal absorption: when a localized deviation is compatible with an admissible variation in the background, increased uncertainty in the extracted signal yield can reflect the limited information available to distinguish these explanations. The background-only studies presented here favor the AIC-selected mixtures over the BIC-selected mixtures in terms of the bias, coverage, and spurious signal considered. These results support retaining additional background flexibility for density estimation, but do not establish the preferred complexity for a resonance search. Determining that choice requires assessing signal recovery and discovery power alongside control of false-positive rates.
 }
 
 \refcomment{Fig 2 and 4. Perhaps I have misunderstood something in your procedure?
@@ -150,7 +183,7 @@ So surely the log of the function has to be concave, which is not the case in
 these figures. ? Is this not implicit in your monotone discussion? If negative
 W’s are allowed there is of course more freedom..but also more fine tuning
 to avoid negative PDFs.}
-\response Figures 2 and 4 are plotted on a log-log scale. You are correct that the exponential mixtures are log-concave, they just don't seem to be on the log-log scale. The weights of the exponentials are required to be positive.
+\response Figures 2 and 4 were plotted on a log-log scale. The exponential mixture is log-convex not log-concave. We have expanded discussion around log-convexity, as a result we have decided to use log plots instead of log-log plots.
 
 \bigskip
 \hrule
@@ -164,7 +197,7 @@ attempt simulation studies with the ATLAS one as well? A result
 similar to the integrated luminosity scaling in ref [9] would serve as a
 great motivation, as it stands this feels like a gap to me.}
 \response We agree that this would be nice to have. Given the increased computational burden we have decided not to add this study. We have added the following text to the discussion:
-\addedtext{Further simulation studies could more fully characterize the performance and applicability of the exponential mixture framework. Signal-injection and sensitivity studies could assess performance in the presence of a signal and evaluate how the choice of background model and its complexity affects discovery potential and exclusion limits. Studies at larger sample sizes would help establish whether the results obtained with 5,036 observations extend to regimes. Although the fit to the observed dijet spectrum demonstrates applicability to a much larger dataset, it does not establish the corresponding repeated-sample performance. Extending the simulations to other background shapes would further clarify how broadly the observed performance holds.}
+\addedtext{Further simulation studies could more fully characterize the performance and applicability of the exponential mixture framework. Signal-injection and sensitivity studies could assess performance in the presence of a signal and evaluate how the choice of background model and its complexity affects discovery potential and exclusion limits. Studies at larger and smaller sample sizes would help establish whether the results obtained with 5,036 observations extend to other regimes. Although the fit to the observed dijet spectrum demonstrates applicability to a much larger dataset, it does not establish the corresponding repeated-sample performance. Extending the simulations to other background shapes would further clarify how broadly the observed performance holds.}
 
 \refcomment{The paper describes background modeling and spurious signal studies,
 but does not report on signal injection tests. Adding flexibility to
@@ -172,8 +205,8 @@ a background model can result in loss of power for a signal search
 and corresponding experiments would be helpful. Both likelihood ratio
 studies and linearity / extracted-vs-true signal tests would strengthen
 this paper.}
-\response We agree that these would be interesting studies, however, it is not clear if a loss in power for a more complex model is an issue or not. The less complex model may be overly sensitive because it is biased. The background model is sufficiently rigid that there is little issue for resolved peaks, but for small signals when the available data cannot distinguish a localized signal contribution from an admissible variation in the background, increased uncertainty in the signal yield seems appropriate. We have added some text in the discussion around this:
-\addedtext{Additional background flexibility can reduce apparent sensitivity to a resonant signal, but this tradeoff should be interpreted in light of the constraints on the background model and the fact that the finite mixture order is a practical choice rather than a physical assumption. Exponential mixtures remain completely monotone as components are added, restricting their ability to reproduce localized resonant structure and reducing the scope for overfitting. These constraints do not eliminate partial signal absorption: when a localized deviation is small enough to be compatible with an admissible variation in the background, increased uncertainty in the extracted signal yield appropriately reflects the limited information available to distinguish these explanations. For sufficiently constrained models additional complexity may be desirable even if it reduces the apparent sensitivity.}
+
+\response We agree that signal-injection and power studies would strengthen the assessment, particularly by quantifying the potential loss of sensitivity associated with additional background flexibility. Completing and validating this comparison would require additional work beyond what we can reliably incorporate within the present revision period. We have therefore retained the scope of the current simulation studies and revised the discussion to state explicitly that the background-only results do not establish the preferred model complexity for a resonance search.
 
 \refcomment{title page: arXiv identifier is a placeholder, strange line break before "USA"}
 \response Fixed.
@@ -199,8 +232,9 @@ restarts and 100 retries is a sensible choice and that you get sufficiently
 close to the desired (global) minimum? The discussion section hints at
 robust optimization being an open question, do you have any practical
 advice to incorporate here based on the experiments in this paper?}
-\response This is a good question, we found that 80 random restarts were sufficient to find a solution that was comparable to the dijet function fit but we agree that this is not a great heuristic. We have added some text to point to this limitation and to suggest improvements for future work.
-\addedtext{The restart and fit-call budgets are specified separately for each example and should be regarded as heuristic implementation choices; their selection is not determined by an adaptive stopping rule in this study.}
+
+\response The choices of restarts and retries are heuristic and better solutions exist. We have added some text to point to this limitation and to suggest improvements for future work.
+\addedtext{The restart and fit-call budgets are specified separately for each example and should be regarded as heuristic implementation choices.}
 \addedtext{Optimization remains a practical limitation of the present implementation. The likelihood is non-convex in the mixture parameters and can contain nearly flat directions when components have similar rates or negligible weights. Random restarts reduce dependence on initialization, but the finite search used here does not certify that the global maximum has been reached. The restart and retry budgets are heuristic, and their sufficiency across datasets and model complexities has not been established. Residual optimization error can also affect model selection when competing information-criterion values are close. An adaptive stopping criterion could help allocate computational effort according to the observed progress of the optimization, reducing reliance on manually chosen budgets while providing a reproducible rule for terminating the search. Beyond refining the current restart procedure, alternative strategies such as split-and-merge methods developed for Gaussian mixtures \cite{split-and-merge} warrant investigation for their potential to improve optimization reliability and efficiency in exponential mixtures.}
 
 \refcomment{sec 3.1: "spanning from 2015 to 2018 ." extra space before period}
@@ -215,7 +249,9 @@ enters here until I realized this is only showing exponential mixtures,
 may help mentioning in the text introducing the figure explicitly that
 this is only showing those}
 \response The text has been updated:
-\addedtext{Figure~\ref{fig:dijet_AIC_BIC} compares the AIC and BIC scores for exponential mixtures of varying complexity to determine the best fit for the dijet dataset. In this case AIC and BIC agree, the best model has four components. The goodness-of-fit metrics are shown in Table~\ref{tab:dijet_AIC_BIC} where we compare between the dijet function and the exponential mixture.}
+\addedtext{Figure~\ref{fig:dijet_AIC_BIC} compares the AIC and BIC scores for exponential mixtures of varying complexity to determine the best fit for the dijet dataset. In this case AIC and BIC agree, the best model has four components. The goodness-of-fit metrics are shown in Table~\ref{tab:dijet_AIC_BIC} where we compare between the dijet function and the exponential mixture. The exponential mixture achieves a slightly smaller AIC and $\chi^2$ but uses more parameters.
+Figure~\ref{fig:dijet_fit} shows the fit of the dijet function and the 4-component exponential mixture to the dijet dataset.
+The residuals show that the two functions provide similar estimates throughout the mass range.}
 
 \refcomment{fig 1 and fig 3: would be nice to replace with a vector graphic version
 if available, though perfectly readable at current resolution}
@@ -230,17 +266,19 @@ readable enough to me but perhaps can be tuned slightly}
 
 \refcomment{sec 4: I think a brief explanation of label switching is useful here for a
 more general audience}
-\response The reference to label switching has been removed. Label switching can be separated into to regimes. The switching of distinct parameters is not much of an issue, it increases the number of minima but the minima are identical. The switching of parameters that are close together, however, introduces a problem of identifiability and that is still mentioned with less jargon. Here is one excerpt:
+\response We have replaced the brief reference to label switching with an explicit description of weak identifiability. Permuting component labels produces equivalent parameterizations of the same density. Separately, nearly coincident rates or negligible component weights can leave individual parameters poorly constrained, producing nearly flat likelihood directions. The revised text focuses on this latter issue because it is directly relevant to uncertainty estimation.
+
 \addedtext{In finite exponential mixtures, individual component parameters can be poorly constrained even when the combined density is comparatively well constrained. For example, components with nearly equal rates can exchange weight with little change in the density, while the rate of a component with negligible weight is weakly constrained by the data. These configurations can produce nearly flat likelihood directions, making a local quadratic approximation to the likelihood unreliable.}
 
 \refcomment{sec 4: how trustworthy is the Hessian-based estimate of $\sigma_s$ in the spurious signal section, given that the previous coverage section discusses the Hessians are unstable?}
 \response This is a good question, for most of the fits the Hessian is forced positive definite even after model selection. Instead of quantifying the spurious signal in terms of $N_s/\sigma_{N_s}$ we have decided to use the signed profile likelihood ratio which is equivalent to this quantity under the Wald approximation. See the added text:
-\addedtext{The spurious significance of the fitted signal fraction is commonly approximated by \(\hat{\mu}/\sigma_\mu\), assuming an approximately Gaussian estimator with a reliable uncertainty estimate. The uncertainty \(\sigma_\mu\) is typically estimated from the inverse Hessian of the negative log likelihood, using a local quadratic approximation. Under the Wald approximation, the square of this ratio is approximately proportional to the profile likelihood ratio (see Eqs.~(17)--(18) of Ref.~\cite{Cowan_2011}). For exponential mixtures, the Hessian inversion can be unstable, motivating the more general statistic
+\addedtext{We quantify the spurious signal using the signed profile likelihood statistic
 \begin{equation}
 r_0 = \operatorname{sign}(\hat{\mu})\sqrt{-2\ln\lambda(0)},
 \end{equation}
-where $\lambda(\mu)$ is the profile likelihood ratio defined in
-Eq.~(7) of Ref.~\cite{Cowan_2011}. This statistic reduces to $\hat{\mu}/\sigma_\mu$ under the Wald approximation while avoiding an explicit covariance-matrix inversion. Its sign distinguishes apparent excesses from deficits, although its interpretation as a Gaussian significance still relies on asymptotic approximations.}
+where $\lambda(\mu)$ is the profile likelihood ratio defined in Eq.~(7) of Ref.~\cite{Cowan_2011}. Its sign distinguishes apparent excesses from deficits. Under the Wald approximation,
+$-2\ln\lambda(0)\approx\hat{\mu}^2/\sigma_\mu^2$, so $r_0$ reduces to the commonly used ratio $\hat{\mu}/\sigma_\mu$ (see Eqs.~(17)--(18) of Ref.~\cite{Cowan_2011}). The uncertainty $\sigma_\mu$ is typically estimated from the inverse Hessian of the negative log likelihood, whose inversion can be unstable when the likelihood is flat. Using $r_0$ avoids this explicit covariance-matrix inversion and does not require a local quadratic approximation to the likelihood, although its interpretation as a Gaussian significance still relies on asymptotic approximations.
+}
 
 \refcomment{sec 4: typo "regio;,"}
 \response Fixed.
@@ -268,6 +306,6 @@ Eq.~(7) of Ref.~\cite{Cowan_2011}. This statistic reduces to $\hat{\mu}/\sigma_\
 
 \bigskip
 \noindent Sincerely,\\
-\textit{[Your Name(s)]}
+\textit{Austin Townsend, Marc Osherson, Mike Hildreth, Stefano Castruccio}
 
 \end{document}
