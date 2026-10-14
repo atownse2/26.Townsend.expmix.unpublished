@@ -1,0 +1,74 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{xcolor}
+\usepackage{xr-hyper}
+\externaldocument{main} % reads main.aux; omit the .tex extension
+\usepackage{hyperref}   % only if not already loaded
+% \usepackage{hyperref}
+
+% Custom styling for comments and changes
+\definecolor{refcolor}{RGB}{0, 51, 102}
+\definecolor{quotecolor}{RGB}{80, 80, 80}
+
+\newcommand{\refcomment}[1]{%
+    \medskip\noindent\textbf{\color{refcolor}Comment:}\ %
+    {\itshape #1}\par\smallskip
+}
+
+\newcommand{\response}{\noindent\textbf{Response:}\ }
+
+\newcommand{\addedtext}[1]{%
+    \smallskip\begin{quote}\color{quotecolor}\small #1\end{quote}\smallskip
+}
+
+\title{\textbf{Response to Referee Reports}\\
+\large JHEP Manuscript ID: JHEP\_027P\_0726}
+\author{\textbf{Authors:} Austin Townsend, Marc Osherson, Mike Hildreth, Stefano Castruccio}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\noindent Dear Editor and Referees,
+
+\medskip
+TODO
+
+\section*{Summary of Changes}
+
+TODO
+
+\bigskip
+\hrule
+\bigskip
+
+\section*{Response to Referee 1}
+
+\refcomment{TODO}
+\response TODO
+\addedtext{TODO}
+
+\bigskip
+\hrule
+\bigskip
+
+\section*{Response to Referee 2}
+
+\refcomment{TODO}
+\response TODO
+\addedtext{TODO}
+
+\bigskip
+\hrule
+\bigskip
+
+\noindent We hope the revised manuscript is now suitable for publication in JHEP.
+
+\bigskip
+\noindent Sincerely,\\
+\textit{Austin Townsend, Marc Osherson, Mike Hildreth, Stefano Castruccio}
+
+\end{document}
