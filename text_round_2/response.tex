@@ -35,7 +35,7 @@
 \noindent Dear Editor and Referees,
 
 \medskip
-We thank the editor and referees for their continued consideration of our manuscript and their helpful comments. We have clarified the definitions of log-convexity and log-concavity, revised the conclusion to better convey the scope and limitations of the exponential-mixture approach, and addressed the remaining notation, formatting, and reference corrections. Below, we summarize the changes and provide point-by-point responses to the referees’ comments.
+We thank the editor and referees for their continued consideration of our manuscript and their helpful comments. We have clarified the definitions of log-convexity and log-concavity, revised the conclusion to better convey the scope and limitations of the exponential-mixture approach, and addressed the remaining notation, formatting, and reference corrections. Below, we summarize the changes, provide a complete change log, and give point-by-point responses to the referees’ comments.
 \bigskip
 
 \noindent We hope the revised manuscript is now suitable for publication in JHEP.
@@ -48,25 +48,17 @@ We thank the editor and referees for their continued consideration of our manusc
 \section*{Summary of Changes}
 
 \begin{itemize}
-\item Added definition of log-convex and log-concave in Section 2 paragraph 2.
-\item Revised sentence in abstract to comply with ask to resolve ambiguity within "positive/negative shape GPD".
-\begin{itemize}
-    \item \textbf{Old:}
-    The exponential mixture is motivated as a generalization of the positive-shape generalized Pareto distribution from extreme value theory.
-
-    \item \textbf{New:}
-    Exponential mixtures are motivated as an extension to the generalized Pareto distribution with positive shape parameter, which arises as a limiting distribution in extreme value theory
-\end{itemize}
-\item Refined final paragraph of conclusion for clarity and flow.
-\begin{itemize}
-    \item \textbf{Old:}
-    These results suggest that the finite exponential mixture is a promising, statistically motivated general-purpose basis for modeling falling backgrounds in resonant searches. The model is broad enough to adapt to different, smoothly falling spectra while remaining subject to an explicit complete-monotonicity constraint; however, it exhibits clear limitations. Because the distributions of interest are not guaranteed to be completely monotone, non-completely-monotone effects---such as threshold turn-on behavior, finite-energy cutoffs, and other process-specific features---may need to be modeled separately. Furthermore, because performance depends on heuristics for model selection, fit range, and optimization, further work in these areas and in the treatment of non-completely-monotone effects will be essential to improving the performance and generality of this reusable model class.
-
-    \item \textbf{New:}
-    These results suggest that the finite exponential mixture is a promising, statistically motivated basis for modeling the bulk of falling backgrounds in high-mass resonant searches. The model is flexible enough to approximate a range of smoothly falling spectra while remaining subject to an explicit complete-monotonicity constraint, which limits its ability to describe turn-on and finite-endpoint effects. The treatment of non-completely-monotone effects, together with further refinement of the heuristic choices used for model selection, fit range, and optimization, will improve the performance and broaden the applicability of this reusable model class.
-\end{itemize}
+\item Added definitions of log-concave and log-convex
+\item Resolved ambiguity in "positive/negative shape GPD" terminology.
+\item Corrected notation, equation formatting, quotation marks.
+\item Rewrote ATLAS Dijet function to be more consistent with the text
+\item Refined final paragraph of the conclusion for flow and clarity.
+\item Removed duplicated text in data availability statement.
+\item Fixed bibliography formatting.
+\item Updated repository URL.
 \end{itemize}
 \clearpage
+
 \section*{Response to Referee 1}
 
 \refcomment{I apologize for my misunderstandings on first reading. However, I think I
@@ -107,9 +99,90 @@ formation}
 \refcomment{ref 23: missing an article number (space before the period)}
 \response We have added the missing article number (1554) to Ref. [23], which also resolves the space before the period.
 
+\clearpage
 
-\bigskip
-\hrule
-\bigskip
+\section*{Complete Change Log: Round 1 to Round 2}
+
+Locations refer to the Round 2 manuscript.
+
+\begin{itemize}
+    \item \textbf{Abstract, final sentence:} Clarified the GPD reference family and its extreme-value context.
+    \begin{itemize}
+        \item \textbf{Old:} The exponential mixture is motivated as a generalization of the positive-shape generalized Pareto distribution from extreme value theory.
+        \item \textbf{New:} Exponential mixtures are motivated as an extension to the generalized Pareto distribution with positive shape parameter, which arises as a limiting distribution in extreme value theory.
+    \end{itemize}
+
+    \item \textbf{Section 1, Introduction, first paragraph:} Corrected quotation marks.
+    \begin{itemize}
+        \item \textbf{Old:} ``bump hunts'' and ``bump,''
+        \item \textbf{New:} ``bump hunt'' and ``bump,''
+    \end{itemize}
+
+    \item \textbf{Section 2, opening GPD paragraph:} Added definitions of the log-shape regimes.
+    \begin{itemize}
+        \item \textbf{Old:} This approximation becomes accurate as the threshold approaches the upper endpoint, which may be finite or infinite, with a scale parameter that generally depends on the threshold. The result motivates considering the GPD as a reference family for falling spectra in high-energy physics: EVT identifies a common limiting form, while the underlying distribution determines how high the threshold must be for that form to provide a useful description. The GPD density is given by:
+        \item \textbf{New:} This approximation becomes accurate as the threshold approaches the upper endpoint, which may be finite or infinite. The result motivates considering the GPD as a reference family for falling spectra in high-energy physics: EVT identifies a common limiting form, while the underlying distribution determines how high the threshold must be for that form to provide a useful description.
+
+        The GPD shape parameter determines whether the density is log-convex, log-linear, or log-concave in its decreasing regime. A density is log-convex when the second derivative of its logarithm is positive or zero throughout its domain, and log-concave when it is negative or zero. When this derivative is identically zero, the logarithm is linear and the density has an exponential form. The GPD density is given by:
+    \end{itemize}
+
+    \item \textbf{Section 2, following the GPD density:} Corrected punctuation.
+    \begin{itemize}
+        \item \textbf{Old:} Here $u$ is the lower threshold, $\sigma>0$ is the scale parameter,
+        \item \textbf{New:} Here $u$ is the lower threshold and $\sigma>0$ is the scale parameter,
+    \end{itemize}
+
+    \item \textbf{Section 2, collider-application paragraph:} Replaced shape labels with explicit shape-parameter ranges.
+    \begin{itemize}
+        \item \textbf{Old:} In collider applications, the physical upper bound at the center-of-mass energy motivates a negative-shape GPD as a possible description sufficiently close to the endpoint. [...] the spectra are instead predominantly log-convex, favoring the positive-shape GPD as an alternative reference shape [...] This compatibility motivates the positive-shape GPD as a starting point [...]
+        \item \textbf{New:} In collider applications, the physical upper bound at the center-of-mass energy motivates a GPD with $-1<\xi<0$ as a possible description sufficiently close to the endpoint. [...] the spectra are instead predominantly log-convex, favoring a GPD with $\xi>0$ as an alternative reference shape [...] This compatibility motivates the GPD with $\xi>0$ as a starting point [...]
+    \end{itemize}
+
+    \item \textbf{Section 2, before the finite-mixture density:} Made the positive-shape condition explicit.
+    \begin{itemize}
+        \item \textbf{Old:} The resulting family contains the positive-shape GPD and exponential reference models while allowing more flexible shapes.
+        \item \textbf{New:} The resulting family contains the GPD ($\xi>0$) and exponential reference models while allowing more flexible shapes.
+    \end{itemize}
+
+    \item \textbf{Section 3.1, ATLAS Dijet Spectrum:} Made the exponent signs explicit.
+    \begin{itemize}
+        \item \textbf{Old:} $f_D(x) = p_0(1-x)^{p_1}/x^{p_2+p_3\log x}$, and ``With the exception of the $x^{p_3\log x}$ term''.
+        \item \textbf{New:} $f_D(x) = p_0(1-x)^{p_1}x^{-p_2-p_3\log x}$, and ``With the exception of the $x^{-p_3\log x}$ term''.
+    \end{itemize}
+
+    \item \textbf{Section 4, Simulation Studies and Bias subsection:} Standardized equation capitalization and subscript notation.
+    \begin{itemize}
+        \item \textbf{Old:} ``each of the functions in eq.~\eqref{eq:diphoton_fns}'' and $f{\mathrm{true}}(x)$.
+        \item \textbf{New:} ``each of the functions in Eq.~\eqref{eq:diphoton_fns}'' and $f_{\mathrm{true}}(x)$.
+    \end{itemize}
+
+    \item \textbf{Section 5, Discussion:} Replaced shorthand GPD shape descriptions.
+    \begin{itemize}
+        \item \textbf{Old:} ``The exponential-mixture representation of the positive-shape GPD motivates the construction''; ``Our starting point is the positive-shape GPD, which has an exponential-gamma mixture representation''; and ``a negative-shape GPD may provide an appropriate description.''
+        \item \textbf{New:} ``The exponential-mixture representation of the GPD with positive shape parameter motivates the construction''; ``Our starting point is the GPD, which has an exponential-gamma mixture representation when $\xi>0$''; and ``a GPD with a negative shape parameter ($\xi<0$) may provide an appropriate description.''
+    \end{itemize}
+
+    \item \textbf{Section 6, Conclusion, final paragraph:} Revised the scope and limitations statement.
+    \begin{itemize}
+        \item \textbf{Old:} These results suggest that the finite exponential mixture is a promising, statistically motivated general-purpose basis for modeling falling backgrounds in resonant searches. The model is broad enough to adapt to different, smoothly falling spectra while remaining subject to an explicit complete-monotonicity constraint; however, it exhibits clear limitations. Because the distributions of interest are not guaranteed to be completely monotone, non-completely-monotone effects---such as threshold turn-on behavior, finite-energy cutoffs, and other process-specific features---may need to be modeled separately. Furthermore, because performance depends on heuristics for model selection, fit range, and optimization, further work in these areas and in the treatment of non-completely-monotone effects will be essential to improving the performance and generality of this reusable model class.
+        \item \textbf{New:} These results suggest that the finite exponential mixture is a promising, statistically motivated basis for modeling the bulk of falling backgrounds in high-mass resonant searches. The model is flexible enough to approximate a range of smoothly falling spectra while remaining subject to an explicit complete-monotonicity constraint, which limits its ability to describe turn-on and finite-endpoint effects. The treatment of non-completely-monotone effects, together with further refinement of the heuristic choices used for model selection, fit range, and optimization, will improve the performance and broaden the applicability of this reusable model class.
+    \end{itemize}
+
+    \item \textbf{Data Availability:} Removed the duplicate availability paragraph and clarified the binned datasets.
+    \begin{itemize}
+        \item \textbf{Old:} The dataset(s) analyzed during the current study are publicly available on \href{https://www.hepdata.net/}{HEPData}, see Ref. \cite{Maguire_2017} for more information. These data can be accessed at: \url{https://doi.org/10.17182/hepdata.91126} for the ATLAS dijet dataset and \url{https://doi.org/10.17182/hepdata.150677} for the CMS diphoton dataset. The unbinned CMS diphoton dataset used in this study was provided by the CMS collaboration and can be found in the repository given in the next section.
+
+        The published binned ATLAS dijet and CMS diphoton datasets are publicly available on \href{https://www.hepdata.net/}{HEPData}~\cite{Maguire_2017} at \url{https://doi.org/10.17182/hepdata.91126} and \url{https://doi.org/10.17182/hepdata.150677}, respectively. The unbinned CMS diphoton dataset used in this study was provided by the CMS collaboration and is available in ROOT format in the accompanying code repository, linked in the Code Availability section.
+        \item \textbf{New:} The published ATLAS dijet and binned CMS diphoton datasets are publicly available on \href{https://www.hepdata.net/}{HEPData}~\cite{Maguire_2017} at \url{https://doi.org/10.17182/hepdata.91126} and \url{https://doi.org/10.17182/hepdata.150677}, respectively. The unbinned CMS diphoton dataset used in this study was provided by the CMS collaboration and is available in ROOT format in the accompanying code repository, linked in the Code Availability section.
+    \end{itemize}
+
+    \item \textbf{Code Availability:} Updated the repository URL.
+    \begin{itemize}
+        \item \textbf{Old:} \url{https://github.com/atownse2/26.Townsend.expmix.unpublished}
+        \item \textbf{New:} \url{https://github.com/atownse2/26.Townsend.expmix.published}
+    \end{itemize}
+\end{itemize}
+
+\clearpage
 
 \end{document}
