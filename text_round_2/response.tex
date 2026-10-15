@@ -35,34 +35,7 @@
 \noindent Dear Editor and Referees,
 
 \medskip
-TODO
-
-\section*{Summary of Changes}
-
-TODO
-
-\bigskip
-\hrule
-\bigskip
-
-\section*{Response to Referee 1}
-
-\refcomment{TODO}
-\response TODO
-\addedtext{TODO}
-
-\bigskip
-\hrule
-\bigskip
-
-\section*{Response to Referee 2}
-
-\refcomment{TODO}
-\response TODO
-\addedtext{TODO}
-
-\bigskip
-\hrule
+We thank the editor and referees for their continued consideration of our manuscript and their helpful comments. We have clarified the definitions of log-convexity and log-concavity, revised the conclusion to better convey the scope and limitations of the exponential-mixture approach, and addressed the remaining notation, formatting, and reference corrections. Below, we summarize the changes and provide point-by-point responses to the referees’ comments.
 \bigskip
 
 \noindent We hope the revised manuscript is now suitable for publication in JHEP.
@@ -70,5 +43,73 @@ TODO
 \bigskip
 \noindent Sincerely,\\
 \textit{Austin Townsend, Marc Osherson, Mike Hildreth, Stefano Castruccio}
+
+
+\section*{Summary of Changes}
+
+\begin{itemize}
+\item Added definition of log-convex and log-concave in Section 2 paragraph 2.
+\item Revised sentence in abstract to comply with ask to resolve ambiguity within "positive/negative shape GPD".
+\begin{itemize}
+    \item \textbf{Old:}
+    The exponential mixture is motivated as a generalization of the positive-shape generalized Pareto distribution from extreme value theory.
+
+    \item \textbf{New:}
+    Exponential mixtures are motivated as an extension to the generalized Pareto distribution with positive shape parameter, which arises as a limiting distribution in extreme value theory
+\end{itemize}
+\item Refined final paragraph of conclusion for clarity and flow.
+\begin{itemize}
+    \item \textbf{Old:}
+    These results suggest that the finite exponential mixture is a promising, statistically motivated general-purpose basis for modeling falling backgrounds in resonant searches. The model is broad enough to adapt to different, smoothly falling spectra while remaining subject to an explicit complete-monotonicity constraint; however, it exhibits clear limitations. Because the distributions of interest are not guaranteed to be completely monotone, non-completely-monotone effects---such as threshold turn-on behavior, finite-energy cutoffs, and other process-specific features---may need to be modeled separately. Furthermore, because performance depends on heuristics for model selection, fit range, and optimization, further work in these areas and in the treatment of non-completely-monotone effects will be essential to improving the performance and generality of this reusable model class.
+
+    \item \textbf{New:}
+    These results suggest that the finite exponential mixture is a promising, statistically motivated basis for modeling the bulk of falling backgrounds in high-mass resonant searches. The model is flexible enough to approximate a range of smoothly falling spectra while remaining subject to an explicit complete-monotonicity constraint, which limits its ability to describe turn-on and finite-endpoint effects. The treatment of non-completely-monotone effects, together with further refinement of the heuristic choices used for model selection, fit range, and optimization, will improve the performance and broaden the applicability of this reusable model class.
+\end{itemize}
+\end{itemize}
+\clearpage
+\section*{Response to Referee 1}
+
+\refcomment{I apologize for my misunderstandings on first reading. However, I think I
+still have one left: the meaning of convex and concave. I was not aware of the downwards definition of this term in mathematics, and wonder whether other colleagues might also be confused. Adding a word of explanation might be good. This matters, because the complete monotinicity constraint inherent in the approach may concern readers.}
+\response We thank the referee for suggesting this clarification. We have added the following text near the beginning of Section 2:
+\addedtext{The GPD shape parameter determines whether the density is log-convex, log-linear, or log-concave in its decreasing regime. A density is log-convex when the second derivative of its logarithm is positive or zero throughout its domain, and log-concave when it is negative or zero. When this derivative is identically zero, the logarithm is linear and the density has an exponential form. The GPD density is given by:}
+
+\response We agree that complete monotonicity is a substantive modeling assumption. EVT motivates the GPD reference family and generalizing its exponential-mixture representation increases flexibility, but EVT does not establish that a collider spectrum is completely monotone over a finite analysis interval. The suitability of this assumption must therefore be assessed for the spectrum and fit range under consideration, as discussed in Section 5
+
+
+\refcomment{p1 bump has the initial inverted comma incorrect a couple of times here}
+\response Changed "bump hunt" to ``bump hunt'' and "bump" to ``bump''.
+
+\refcomment{p3 a negative-shape GPD I think this could be written more clearly. neg-ative xsi?}
+\response Changed ``a negative-shape GPD'' to ``a GPD with a negative shape parameter ($\xi<0$).'' Also reworded occurrences of "a positive-shape GPD" to "GPD with positive shape parameter" or similar.
+
+\refcomment{p6 In para 3 of sect 3.1 The usage of the sign is inconsistent.}
+\response Changed formula for the Dijet function to use multiplication instead of division, changing the sign of the exponents:
+\begin{equation}
+f_D(x) = p_0(1-x)^{p_1}x^{-p_2-p_3\log x}.
+\end{equation}
+Also changed $x^{p_3\log x}$ to  $x^{-p_3\log x}$.
+
+\clearpage
+\section*{Response to Referee 2}
+
+\refcomment{eq 4.1: formatting of "true" subscript}
+\response Fixed
+
+\refcomment{sec 4: "eq. (3.4)" vs "Eq. (3.4)" has inconsistent capitalization}
+\response Fixed, all are capitalized.
+
+
+\refcomment{data availability: the two paragraphs here are largely duplicating in-
+formation}
+\response Removed the first paragraph in the data availability section.
+
+\refcomment{ref 23: missing an article number (space before the period)}
+\response We have added the missing article number (1554) to Ref. [23], which also resolves the space before the period.
+
+
+\bigskip
+\hrule
+\bigskip
 
 \end{document}
